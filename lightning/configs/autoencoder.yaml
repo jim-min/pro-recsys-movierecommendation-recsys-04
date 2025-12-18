@@ -1,0 +1,38 @@
+# Hydra configuration for MNIST Autoencoder training
+defaults:
+  - logging: default
+  - _self_
+
+# 로그 설정 (공통 설정 override)
+logging:
+  name: "mnist-autoencoder"
+
+# 데이터 설정
+data:
+  data_dir: "~/data/"
+  batch_size: 32
+  target_labels: [0, 1, 3, 8]
+
+# 모델 설정
+model:
+  latent_dim: 2
+  hidden_dim: 256
+
+# 학습 설정
+training:
+  max_epochs: 2
+  lr: 1e-3
+  weight_decay: 0.1
+  T_max: 100  # CosineAnnealingLR
+
+# Trainer 설정
+trainer:
+  devices: "auto"
+  log_every_n_steps: 5
+  val_check_interval: 1.0
+  enable_progress_bar: true
+  enable_model_summary: true
+
+# 기타 설정
+seed: 42
+float32_matmul_precision: "medium"  # 'high', 'medium', or 'highest'
