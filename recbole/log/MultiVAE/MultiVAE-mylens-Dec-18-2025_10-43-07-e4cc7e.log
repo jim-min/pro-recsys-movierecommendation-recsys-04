@@ -1,0 +1,604 @@
+Thu 18 Dec 2025 10:43:07 INFO  ['run_recbole.py', '--model', 'MultiVAE', '--dataset', 'mylens', '--config', 'config.yaml']
+Thu 18 Dec 2025 10:43:07 INFO  
+General Hyper Parameters:
+gpu_id = 0
+use_gpu = True
+seed = 2025
+state = INFO
+reproducibility = True
+data_path = dataset/mylens
+checkpoint_dir = saved/
+show_progress = True
+save_dataset = False
+dataset_save_path = None
+save_dataloaders = False
+dataloaders_save_path = None
+log_wandb = False
+
+Training Hyper Parameters:
+epochs = 200
+train_batch_size = 2048
+learner = adam
+learning_rate = 0.001
+train_neg_sample_args = {'distribution': 'uniform', 'sample_num': 1, 'alpha': 1.0, 'dynamic': False, 'candidate_num': 0}
+eval_step = 1
+stopping_step = 10
+clip_grad_norm = None
+weight_decay = 0.0
+loss_decimal_place = 4
+
+Evaluation Hyper Parameters:
+eval_args = {'split': {'RS': [0.9, 0.1, 0.0]}, 'order': 'RO', 'group_by': 'user', 'mode': {'valid': 'full', 'test': 'full'}}
+repeatable = False
+metrics = ['Recall', 'NDCG', 'MRR']
+topk = [10]
+valid_metric = Recall@10
+valid_metric_bigger = True
+eval_batch_size = 4096
+metric_decimal_place = 4
+
+Dataset Hyper Parameters:
+field_separator = 	
+seq_separator =  
+USER_ID_FIELD = user_id
+ITEM_ID_FIELD = item_id
+RATING_FIELD = rating
+TIME_FIELD = timestamp
+seq_len = None
+LABEL_FIELD = label
+threshold = None
+NEG_PREFIX = neg_
+load_col = {'inter': ['user_id', 'item_id']}
+unload_col = None
+unused_col = None
+additional_feat_suffix = None
+rm_dup_inter = None
+val_interval = None
+filter_inter_by_user_or_item = True
+user_inter_num_interval = [0,inf)
+item_inter_num_interval = [0,inf)
+alias_of_user_id = None
+alias_of_item_id = None
+alias_of_entity_id = None
+alias_of_relation_id = None
+preload_weight = None
+normalize_field = None
+normalize_all = None
+ITEM_LIST_LENGTH_FIELD = item_length
+LIST_SUFFIX = _list
+MAX_ITEM_LIST_LENGTH = 50
+POSITION_FIELD = position_id
+HEAD_ENTITY_ID_FIELD = head_id
+TAIL_ENTITY_ID_FIELD = tail_id
+RELATION_ID_FIELD = relation_id
+ENTITY_ID_FIELD = entity_id
+benchmark_filename = None
+
+Other Hyper Parameters: 
+worker = 0
+wandb_project = recbole
+shuffle = True
+require_pow = False
+enable_amp = False
+enable_scaler = False
+transform = None
+mlp_hidden_size = [600]
+latent_dimension = 128
+dropout_prob = 0.5
+anneal_cap = 0.2
+total_anneal_steps = 200000
+numerical_features = []
+discretization = None
+kg_reverse_r = False
+entity_kg_num_interval = [0,inf)
+relation_kg_num_interval = [0,inf)
+MODEL_TYPE = ModelType.GENERAL
+neg_sampling = {'uniform': 1}
+MODEL_INPUT_TYPE = InputType.PAIRWISE
+eval_type = EvaluatorType.RANKING
+single_spec = True
+local_rank = 0
+device = cuda
+valid_neg_sample_args = {'distribution': 'uniform', 'sample_num': 'none'}
+test_neg_sample_args = {'distribution': 'uniform', 'sample_num': 'none'}
+
+
+Thu 18 Dec 2025 10:43:20 INFO  mylens
+The number of users: 19892
+Average actions of users: 164.42024030968778
+The number of items: 6808
+Average actions of items: 480.4587924195681
+The number of inters: 3270483
+The sparsity of the dataset: 97.58501799848442%
+Remain Fields: ['user_id', 'item_id']
+Thu 18 Dec 2025 10:43:28 INFO  [Training]: train_batch_size = [2048] train_neg_sample_args: [{'distribution': 'uniform', 'sample_num': 1, 'alpha': 1.0, 'dynamic': False, 'candidate_num': 0}]
+Thu 18 Dec 2025 10:43:28 INFO  [Evaluation]: eval_batch_size = [4096] eval_args: [{'split': {'RS': [0.9, 0.1, 0.0]}, 'order': 'RO', 'group_by': 'user', 'mode': {'valid': 'full', 'test': 'full'}}]
+Thu 18 Dec 2025 10:43:29 WARNING  Max value of user's history interaction records has reached 38.49882491186839% of the total.
+Thu 18 Dec 2025 10:43:34 INFO  MultiVAE(
+  (encoder): Sequential(
+    (0): Linear(in_features=6808, out_features=600, bias=True)
+    (1): Tanh()
+    (2): Linear(in_features=600, out_features=128, bias=True)
+  )
+  (decoder): Sequential(
+    (0): Linear(in_features=64, out_features=600, bias=True)
+    (1): Tanh()
+    (2): Linear(in_features=600, out_features=6808, bias=True)
+  )
+)
+Trainable parameters: 8292936
+Thu 18 Dec 2025 10:43:34 INFO  FLOPs: 8284800.0
+Thu 18 Dec 2025 10:43:35 INFO  epoch 0 training [time: 0.56s, train loss: 12611.6648]
+Thu 18 Dec 2025 10:44:07 INFO  epoch 0 evaluating [time: 31.44s, valid_score: 0.040400]
+Thu 18 Dec 2025 10:44:07 INFO  valid result: 
+recall@10 : 0.0404    ndcg@10 : 0.0651    mrr@10 : 0.147
+Thu 18 Dec 2025 10:44:07 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:44:07 INFO  epoch 1 training [time: 0.23s, train loss: 11717.4772]
+Thu 18 Dec 2025 10:44:38 INFO  epoch 1 evaluating [time: 30.85s, valid_score: 0.086200]
+Thu 18 Dec 2025 10:44:38 INFO  valid result: 
+recall@10 : 0.0862    ndcg@10 : 0.1406    mrr@10 : 0.3
+Thu 18 Dec 2025 10:44:39 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:44:39 INFO  epoch 2 training [time: 0.23s, train loss: 11492.6296]
+Thu 18 Dec 2025 10:45:10 INFO  epoch 2 evaluating [time: 30.99s, valid_score: 0.089000]
+Thu 18 Dec 2025 10:45:10 INFO  valid result: 
+recall@10 : 0.089    ndcg@10 : 0.1465    mrr@10 : 0.3124
+Thu 18 Dec 2025 10:45:10 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:45:11 INFO  epoch 3 training [time: 0.19s, train loss: 11330.1761]
+Thu 18 Dec 2025 10:45:42 INFO  epoch 3 evaluating [time: 31.33s, valid_score: 0.093500]
+Thu 18 Dec 2025 10:45:42 INFO  valid result: 
+recall@10 : 0.0935    ndcg@10 : 0.1544    mrr@10 : 0.3274
+Thu 18 Dec 2025 10:45:42 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:45:43 INFO  epoch 4 training [time: 0.18s, train loss: 11159.8694]
+Thu 18 Dec 2025 10:46:14 INFO  epoch 4 evaluating [time: 31.14s, valid_score: 0.104500]
+Thu 18 Dec 2025 10:46:14 INFO  valid result: 
+recall@10 : 0.1045    ndcg@10 : 0.1692    mrr@10 : 0.3522
+Thu 18 Dec 2025 10:46:14 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:46:15 INFO  epoch 5 training [time: 0.18s, train loss: 11060.1495]
+Thu 18 Dec 2025 10:46:46 INFO  epoch 5 evaluating [time: 31.28s, valid_score: 0.108200]
+Thu 18 Dec 2025 10:46:46 INFO  valid result: 
+recall@10 : 0.1082    ndcg@10 : 0.1757    mrr@10 : 0.3673
+Thu 18 Dec 2025 10:46:46 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:46:47 INFO  epoch 6 training [time: 0.18s, train loss: 11015.3188]
+Thu 18 Dec 2025 10:47:18 INFO  epoch 6 evaluating [time: 31.26s, valid_score: 0.111000]
+Thu 18 Dec 2025 10:47:18 INFO  valid result: 
+recall@10 : 0.111    ndcg@10 : 0.1811    mrr@10 : 0.376
+Thu 18 Dec 2025 10:47:18 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:47:19 INFO  epoch 7 training [time: 0.18s, train loss: 10968.4972]
+Thu 18 Dec 2025 10:47:50 INFO  epoch 7 evaluating [time: 31.23s, valid_score: 0.114100]
+Thu 18 Dec 2025 10:47:50 INFO  valid result: 
+recall@10 : 0.1141    ndcg@10 : 0.1864    mrr@10 : 0.387
+Thu 18 Dec 2025 10:47:50 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:47:51 INFO  epoch 8 training [time: 0.20s, train loss: 10912.4657]
+Thu 18 Dec 2025 10:48:22 INFO  epoch 8 evaluating [time: 31.22s, valid_score: 0.118200]
+Thu 18 Dec 2025 10:48:22 INFO  valid result: 
+recall@10 : 0.1182    ndcg@10 : 0.1897    mrr@10 : 0.3934
+Thu 18 Dec 2025 10:48:22 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:48:23 INFO  epoch 9 training [time: 0.20s, train loss: 10868.8812]
+Thu 18 Dec 2025 10:48:54 INFO  epoch 9 evaluating [time: 31.26s, valid_score: 0.120700]
+Thu 18 Dec 2025 10:48:54 INFO  valid result: 
+recall@10 : 0.1207    ndcg@10 : 0.1939    mrr@10 : 0.4013
+Thu 18 Dec 2025 10:48:54 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:48:55 INFO  epoch 10 training [time: 0.20s, train loss: 10813.4210]
+Thu 18 Dec 2025 10:49:26 INFO  epoch 10 evaluating [time: 31.55s, valid_score: 0.124400]
+Thu 18 Dec 2025 10:49:26 INFO  valid result: 
+recall@10 : 0.1244    ndcg@10 : 0.2018    mrr@10 : 0.4134
+Thu 18 Dec 2025 10:49:27 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:49:27 INFO  epoch 11 training [time: 0.23s, train loss: 10769.3328]
+Thu 18 Dec 2025 10:49:58 INFO  epoch 11 evaluating [time: 31.49s, valid_score: 0.130900]
+Thu 18 Dec 2025 10:49:58 INFO  valid result: 
+recall@10 : 0.1309    ndcg@10 : 0.2105    mrr@10 : 0.4263
+Thu 18 Dec 2025 10:49:59 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:49:59 INFO  epoch 12 training [time: 0.19s, train loss: 10734.0673]
+Thu 18 Dec 2025 10:50:31 INFO  epoch 12 evaluating [time: 31.40s, valid_score: 0.134800]
+Thu 18 Dec 2025 10:50:31 INFO  valid result: 
+recall@10 : 0.1348    ndcg@10 : 0.2151    mrr@10 : 0.4356
+Thu 18 Dec 2025 10:50:31 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:50:31 INFO  epoch 13 training [time: 0.19s, train loss: 10699.9459]
+Thu 18 Dec 2025 10:51:03 INFO  epoch 13 evaluating [time: 31.29s, valid_score: 0.136800]
+Thu 18 Dec 2025 10:51:03 INFO  valid result: 
+recall@10 : 0.1368    ndcg@10 : 0.2182    mrr@10 : 0.4389
+Thu 18 Dec 2025 10:51:03 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:51:03 INFO  epoch 14 training [time: 0.18s, train loss: 10670.3450]
+Thu 18 Dec 2025 10:51:34 INFO  epoch 14 evaluating [time: 31.01s, valid_score: 0.138800]
+Thu 18 Dec 2025 10:51:34 INFO  valid result: 
+recall@10 : 0.1388    ndcg@10 : 0.2214    mrr@10 : 0.4421
+Thu 18 Dec 2025 10:51:35 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:51:35 INFO  epoch 15 training [time: 0.18s, train loss: 10630.7317]
+Thu 18 Dec 2025 10:52:06 INFO  epoch 15 evaluating [time: 31.11s, valid_score: 0.140800]
+Thu 18 Dec 2025 10:52:06 INFO  valid result: 
+recall@10 : 0.1408    ndcg@10 : 0.2249    mrr@10 : 0.4463
+Thu 18 Dec 2025 10:52:07 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:52:07 INFO  epoch 16 training [time: 0.18s, train loss: 10624.6584]
+Thu 18 Dec 2025 10:52:38 INFO  epoch 16 evaluating [time: 31.36s, valid_score: 0.141900]
+Thu 18 Dec 2025 10:52:38 INFO  valid result: 
+recall@10 : 0.1419    ndcg@10 : 0.2255    mrr@10 : 0.4478
+Thu 18 Dec 2025 10:52:39 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:52:39 INFO  epoch 17 training [time: 0.18s, train loss: 10600.8970]
+Thu 18 Dec 2025 10:53:10 INFO  epoch 17 evaluating [time: 31.15s, valid_score: 0.143100]
+Thu 18 Dec 2025 10:53:10 INFO  valid result: 
+recall@10 : 0.1431    ndcg@10 : 0.2272    mrr@10 : 0.4492
+Thu 18 Dec 2025 10:53:11 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:53:11 INFO  epoch 18 training [time: 0.19s, train loss: 10571.3653]
+Thu 18 Dec 2025 10:53:42 INFO  epoch 18 evaluating [time: 31.44s, valid_score: 0.144000]
+Thu 18 Dec 2025 10:53:42 INFO  valid result: 
+recall@10 : 0.144    ndcg@10 : 0.2293    mrr@10 : 0.4525
+Thu 18 Dec 2025 10:53:43 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:53:43 INFO  epoch 19 training [time: 0.18s, train loss: 10546.2200]
+Thu 18 Dec 2025 10:54:14 INFO  epoch 19 evaluating [time: 31.34s, valid_score: 0.144200]
+Thu 18 Dec 2025 10:54:14 INFO  valid result: 
+recall@10 : 0.1442    ndcg@10 : 0.2291    mrr@10 : 0.451
+Thu 18 Dec 2025 10:54:15 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:54:15 INFO  epoch 20 training [time: 0.18s, train loss: 10526.4001]
+Thu 18 Dec 2025 10:54:46 INFO  epoch 20 evaluating [time: 31.37s, valid_score: 0.145200]
+Thu 18 Dec 2025 10:54:46 INFO  valid result: 
+recall@10 : 0.1452    ndcg@10 : 0.2303    mrr@10 : 0.4533
+Thu 18 Dec 2025 10:54:47 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:54:47 INFO  epoch 21 training [time: 0.18s, train loss: 10530.2395]
+Thu 18 Dec 2025 10:55:19 INFO  epoch 21 evaluating [time: 31.55s, valid_score: 0.145500]
+Thu 18 Dec 2025 10:55:19 INFO  valid result: 
+recall@10 : 0.1455    ndcg@10 : 0.231    mrr@10 : 0.4547
+Thu 18 Dec 2025 10:55:19 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:55:19 INFO  epoch 22 training [time: 0.18s, train loss: 10519.5964]
+Thu 18 Dec 2025 10:55:51 INFO  epoch 22 evaluating [time: 31.18s, valid_score: 0.146000]
+Thu 18 Dec 2025 10:55:51 INFO  valid result: 
+recall@10 : 0.146    ndcg@10 : 0.2318    mrr@10 : 0.4548
+Thu 18 Dec 2025 10:55:51 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:55:51 INFO  epoch 23 training [time: 0.19s, train loss: 10504.7876]
+Thu 18 Dec 2025 10:56:23 INFO  epoch 23 evaluating [time: 31.22s, valid_score: 0.146200]
+Thu 18 Dec 2025 10:56:23 INFO  valid result: 
+recall@10 : 0.1462    ndcg@10 : 0.2313    mrr@10 : 0.4523
+Thu 18 Dec 2025 10:56:23 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:56:23 INFO  epoch 24 training [time: 0.18s, train loss: 10505.6886]
+Thu 18 Dec 2025 10:56:55 INFO  epoch 24 evaluating [time: 31.54s, valid_score: 0.146700]
+Thu 18 Dec 2025 10:56:55 INFO  valid result: 
+recall@10 : 0.1467    ndcg@10 : 0.2316    mrr@10 : 0.4515
+Thu 18 Dec 2025 10:56:55 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:56:56 INFO  epoch 25 training [time: 0.20s, train loss: 10489.4178]
+Thu 18 Dec 2025 10:57:27 INFO  epoch 25 evaluating [time: 31.46s, valid_score: 0.147500]
+Thu 18 Dec 2025 10:57:27 INFO  valid result: 
+recall@10 : 0.1475    ndcg@10 : 0.2334    mrr@10 : 0.4552
+Thu 18 Dec 2025 10:57:28 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:57:28 INFO  epoch 26 training [time: 0.19s, train loss: 10478.6360]
+Thu 18 Dec 2025 10:57:59 INFO  epoch 26 evaluating [time: 31.34s, valid_score: 0.148800]
+Thu 18 Dec 2025 10:57:59 INFO  valid result: 
+recall@10 : 0.1488    ndcg@10 : 0.2359    mrr@10 : 0.4593
+Thu 18 Dec 2025 10:58:00 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:58:00 INFO  epoch 27 training [time: 0.21s, train loss: 10462.3196]
+Thu 18 Dec 2025 10:58:31 INFO  epoch 27 evaluating [time: 31.02s, valid_score: 0.149500]
+Thu 18 Dec 2025 10:58:31 INFO  valid result: 
+recall@10 : 0.1495    ndcg@10 : 0.236    mrr@10 : 0.4568
+Thu 18 Dec 2025 10:58:31 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:58:32 INFO  epoch 28 training [time: 0.21s, train loss: 10460.3926]
+Thu 18 Dec 2025 10:59:03 INFO  epoch 28 evaluating [time: 31.41s, valid_score: 0.149700]
+Thu 18 Dec 2025 10:59:03 INFO  valid result: 
+recall@10 : 0.1497    ndcg@10 : 0.2363    mrr@10 : 0.459
+Thu 18 Dec 2025 10:59:04 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:59:04 INFO  epoch 29 training [time: 0.21s, train loss: 10445.3723]
+Thu 18 Dec 2025 10:59:36 INFO  epoch 29 evaluating [time: 31.68s, valid_score: 0.151400]
+Thu 18 Dec 2025 10:59:36 INFO  valid result: 
+recall@10 : 0.1514    ndcg@10 : 0.239    mrr@10 : 0.4631
+Thu 18 Dec 2025 10:59:36 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 10:59:36 INFO  epoch 30 training [time: 0.20s, train loss: 10443.1122]
+Thu 18 Dec 2025 11:00:08 INFO  epoch 30 evaluating [time: 31.33s, valid_score: 0.151400]
+Thu 18 Dec 2025 11:00:08 INFO  valid result: 
+recall@10 : 0.1514    ndcg@10 : 0.238    mrr@10 : 0.4594
+Thu 18 Dec 2025 11:00:08 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:00:08 INFO  epoch 31 training [time: 0.21s, train loss: 10430.8405]
+Thu 18 Dec 2025 11:00:39 INFO  epoch 31 evaluating [time: 31.04s, valid_score: 0.152400]
+Thu 18 Dec 2025 11:00:39 INFO  valid result: 
+recall@10 : 0.1524    ndcg@10 : 0.2387    mrr@10 : 0.4596
+Thu 18 Dec 2025 11:00:40 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:00:40 INFO  epoch 32 training [time: 0.19s, train loss: 10414.5952]
+Thu 18 Dec 2025 11:01:11 INFO  epoch 32 evaluating [time: 30.95s, valid_score: 0.153300]
+Thu 18 Dec 2025 11:01:11 INFO  valid result: 
+recall@10 : 0.1533    ndcg@10 : 0.2407    mrr@10 : 0.4648
+Thu 18 Dec 2025 11:01:12 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:01:12 INFO  epoch 33 training [time: 0.18s, train loss: 10393.6420]
+Thu 18 Dec 2025 11:01:44 INFO  epoch 33 evaluating [time: 31.60s, valid_score: 0.154000]
+Thu 18 Dec 2025 11:01:44 INFO  valid result: 
+recall@10 : 0.154    ndcg@10 : 0.2412    mrr@10 : 0.465
+Thu 18 Dec 2025 11:01:44 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:01:44 INFO  epoch 34 training [time: 0.19s, train loss: 10399.3693]
+Thu 18 Dec 2025 11:02:16 INFO  epoch 34 evaluating [time: 31.47s, valid_score: 0.154500]
+Thu 18 Dec 2025 11:02:16 INFO  valid result: 
+recall@10 : 0.1545    ndcg@10 : 0.2406    mrr@10 : 0.463
+Thu 18 Dec 2025 11:02:16 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:02:17 INFO  epoch 35 training [time: 0.23s, train loss: 10381.4478]
+Thu 18 Dec 2025 11:02:48 INFO  epoch 35 evaluating [time: 31.23s, valid_score: 0.155100]
+Thu 18 Dec 2025 11:02:48 INFO  valid result: 
+recall@10 : 0.1551    ndcg@10 : 0.2426    mrr@10 : 0.4667
+Thu 18 Dec 2025 11:02:48 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:02:49 INFO  epoch 36 training [time: 0.19s, train loss: 10388.6760]
+Thu 18 Dec 2025 11:03:19 INFO  epoch 36 evaluating [time: 30.94s, valid_score: 0.154900]
+Thu 18 Dec 2025 11:03:19 INFO  valid result: 
+recall@10 : 0.1549    ndcg@10 : 0.2415    mrr@10 : 0.4644
+Thu 18 Dec 2025 11:03:20 INFO  epoch 37 training [time: 0.18s, train loss: 10373.5320]
+Thu 18 Dec 2025 11:03:51 INFO  epoch 37 evaluating [time: 31.55s, valid_score: 0.155500]
+Thu 18 Dec 2025 11:03:51 INFO  valid result: 
+recall@10 : 0.1555    ndcg@10 : 0.2425    mrr@10 : 0.466
+Thu 18 Dec 2025 11:03:52 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:03:52 INFO  epoch 38 training [time: 0.19s, train loss: 10359.2253]
+Thu 18 Dec 2025 11:04:23 INFO  epoch 38 evaluating [time: 31.26s, valid_score: 0.156200]
+Thu 18 Dec 2025 11:04:23 INFO  valid result: 
+recall@10 : 0.1562    ndcg@10 : 0.2436    mrr@10 : 0.4681
+Thu 18 Dec 2025 11:04:24 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:04:24 INFO  epoch 39 training [time: 0.20s, train loss: 10351.0962]
+Thu 18 Dec 2025 11:04:55 INFO  epoch 39 evaluating [time: 31.46s, valid_score: 0.156500]
+Thu 18 Dec 2025 11:04:55 INFO  valid result: 
+recall@10 : 0.1565    ndcg@10 : 0.2435    mrr@10 : 0.4666
+Thu 18 Dec 2025 11:04:56 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:04:56 INFO  epoch 40 training [time: 0.20s, train loss: 10339.7263]
+Thu 18 Dec 2025 11:05:27 INFO  epoch 40 evaluating [time: 30.97s, valid_score: 0.156800]
+Thu 18 Dec 2025 11:05:27 INFO  valid result: 
+recall@10 : 0.1568    ndcg@10 : 0.244    mrr@10 : 0.4688
+Thu 18 Dec 2025 11:05:28 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:05:28 INFO  epoch 41 training [time: 0.20s, train loss: 10342.4020]
+Thu 18 Dec 2025 11:05:59 INFO  epoch 41 evaluating [time: 30.93s, valid_score: 0.157100]
+Thu 18 Dec 2025 11:05:59 INFO  valid result: 
+recall@10 : 0.1571    ndcg@10 : 0.244    mrr@10 : 0.4676
+Thu 18 Dec 2025 11:05:59 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:06:00 INFO  epoch 42 training [time: 0.20s, train loss: 10336.3802]
+Thu 18 Dec 2025 11:06:31 INFO  epoch 42 evaluating [time: 31.17s, valid_score: 0.157300]
+Thu 18 Dec 2025 11:06:31 INFO  valid result: 
+recall@10 : 0.1573    ndcg@10 : 0.2446    mrr@10 : 0.4676
+Thu 18 Dec 2025 11:06:31 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:06:31 INFO  epoch 43 training [time: 0.19s, train loss: 10326.0121]
+Thu 18 Dec 2025 11:07:03 INFO  epoch 43 evaluating [time: 31.26s, valid_score: 0.157400]
+Thu 18 Dec 2025 11:07:03 INFO  valid result: 
+recall@10 : 0.1574    ndcg@10 : 0.244    mrr@10 : 0.4681
+Thu 18 Dec 2025 11:07:03 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:07:04 INFO  epoch 44 training [time: 0.22s, train loss: 10318.0942]
+Thu 18 Dec 2025 11:07:34 INFO  epoch 44 evaluating [time: 30.85s, valid_score: 0.158100]
+Thu 18 Dec 2025 11:07:34 INFO  valid result: 
+recall@10 : 0.1581    ndcg@10 : 0.2454    mrr@10 : 0.4706
+Thu 18 Dec 2025 11:07:35 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:07:35 INFO  epoch 45 training [time: 0.20s, train loss: 10323.9445]
+Thu 18 Dec 2025 11:08:06 INFO  epoch 45 evaluating [time: 30.82s, valid_score: 0.157900]
+Thu 18 Dec 2025 11:08:06 INFO  valid result: 
+recall@10 : 0.1579    ndcg@10 : 0.245    mrr@10 : 0.4696
+Thu 18 Dec 2025 11:08:06 INFO  epoch 46 training [time: 0.18s, train loss: 10292.3948]
+Thu 18 Dec 2025 11:08:37 INFO  epoch 46 evaluating [time: 31.25s, valid_score: 0.158700]
+Thu 18 Dec 2025 11:08:37 INFO  valid result: 
+recall@10 : 0.1587    ndcg@10 : 0.2468    mrr@10 : 0.4722
+Thu 18 Dec 2025 11:08:38 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:08:38 INFO  epoch 47 training [time: 0.24s, train loss: 10298.8679]
+Thu 18 Dec 2025 11:09:09 INFO  epoch 47 evaluating [time: 30.93s, valid_score: 0.158800]
+Thu 18 Dec 2025 11:09:09 INFO  valid result: 
+recall@10 : 0.1588    ndcg@10 : 0.2469    mrr@10 : 0.474
+Thu 18 Dec 2025 11:09:10 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:09:10 INFO  epoch 48 training [time: 0.22s, train loss: 10275.8876]
+Thu 18 Dec 2025 11:09:41 INFO  epoch 48 evaluating [time: 31.24s, valid_score: 0.158500]
+Thu 18 Dec 2025 11:09:41 INFO  valid result: 
+recall@10 : 0.1585    ndcg@10 : 0.246    mrr@10 : 0.4706
+Thu 18 Dec 2025 11:09:41 INFO  epoch 49 training [time: 0.20s, train loss: 10287.4259]
+Thu 18 Dec 2025 11:10:13 INFO  epoch 49 evaluating [time: 31.31s, valid_score: 0.158900]
+Thu 18 Dec 2025 11:10:13 INFO  valid result: 
+recall@10 : 0.1589    ndcg@10 : 0.246    mrr@10 : 0.4713
+Thu 18 Dec 2025 11:10:13 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:10:13 INFO  epoch 50 training [time: 0.19s, train loss: 10273.6560]
+Thu 18 Dec 2025 11:10:44 INFO  epoch 50 evaluating [time: 30.90s, valid_score: 0.159000]
+Thu 18 Dec 2025 11:10:44 INFO  valid result: 
+recall@10 : 0.159    ndcg@10 : 0.246    mrr@10 : 0.4707
+Thu 18 Dec 2025 11:10:45 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:10:45 INFO  epoch 51 training [time: 0.19s, train loss: 10256.3363]
+Thu 18 Dec 2025 11:11:16 INFO  epoch 51 evaluating [time: 30.86s, valid_score: 0.159800]
+Thu 18 Dec 2025 11:11:16 INFO  valid result: 
+recall@10 : 0.1598    ndcg@10 : 0.2475    mrr@10 : 0.4746
+Thu 18 Dec 2025 11:11:17 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:11:17 INFO  epoch 52 training [time: 0.18s, train loss: 10254.8123]
+Thu 18 Dec 2025 11:11:47 INFO  epoch 52 evaluating [time: 30.82s, valid_score: 0.159400]
+Thu 18 Dec 2025 11:11:47 INFO  valid result: 
+recall@10 : 0.1594    ndcg@10 : 0.247    mrr@10 : 0.4745
+Thu 18 Dec 2025 11:11:48 INFO  epoch 53 training [time: 0.17s, train loss: 10250.2618]
+Thu 18 Dec 2025 11:12:19 INFO  epoch 53 evaluating [time: 30.85s, valid_score: 0.160200]
+Thu 18 Dec 2025 11:12:19 INFO  valid result: 
+recall@10 : 0.1602    ndcg@10 : 0.247    mrr@10 : 0.4732
+Thu 18 Dec 2025 11:12:19 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:12:19 INFO  epoch 54 training [time: 0.20s, train loss: 10243.0837]
+Thu 18 Dec 2025 11:12:50 INFO  epoch 54 evaluating [time: 30.80s, valid_score: 0.159600]
+Thu 18 Dec 2025 11:12:50 INFO  valid result: 
+recall@10 : 0.1596    ndcg@10 : 0.2458    mrr@10 : 0.4701
+Thu 18 Dec 2025 11:12:50 INFO  epoch 55 training [time: 0.17s, train loss: 10249.2920]
+Thu 18 Dec 2025 11:13:21 INFO  epoch 55 evaluating [time: 30.81s, valid_score: 0.160500]
+Thu 18 Dec 2025 11:13:21 INFO  valid result: 
+recall@10 : 0.1605    ndcg@10 : 0.2478    mrr@10 : 0.4751
+Thu 18 Dec 2025 11:13:22 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:13:22 INFO  epoch 56 training [time: 0.26s, train loss: 10243.0995]
+Thu 18 Dec 2025 11:13:53 INFO  epoch 56 evaluating [time: 30.80s, valid_score: 0.160500]
+Thu 18 Dec 2025 11:13:53 INFO  valid result: 
+recall@10 : 0.1605    ndcg@10 : 0.2465    mrr@10 : 0.4709
+Thu 18 Dec 2025 11:13:53 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:13:53 INFO  epoch 57 training [time: 0.19s, train loss: 10222.9301]
+Thu 18 Dec 2025 11:14:24 INFO  epoch 57 evaluating [time: 30.84s, valid_score: 0.160700]
+Thu 18 Dec 2025 11:14:24 INFO  valid result: 
+recall@10 : 0.1607    ndcg@10 : 0.2476    mrr@10 : 0.4738
+Thu 18 Dec 2025 11:14:25 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:14:25 INFO  epoch 58 training [time: 0.17s, train loss: 10224.3699]
+Thu 18 Dec 2025 11:14:56 INFO  epoch 58 evaluating [time: 30.84s, valid_score: 0.160900]
+Thu 18 Dec 2025 11:14:56 INFO  valid result: 
+recall@10 : 0.1609    ndcg@10 : 0.2468    mrr@10 : 0.4698
+Thu 18 Dec 2025 11:14:56 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:14:57 INFO  epoch 59 training [time: 0.19s, train loss: 10218.2192]
+Thu 18 Dec 2025 11:15:27 INFO  epoch 59 evaluating [time: 30.84s, valid_score: 0.161100]
+Thu 18 Dec 2025 11:15:27 INFO  valid result: 
+recall@10 : 0.1611    ndcg@10 : 0.2476    mrr@10 : 0.4726
+Thu 18 Dec 2025 11:15:28 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:15:28 INFO  epoch 60 training [time: 0.22s, train loss: 10211.1099]
+Thu 18 Dec 2025 11:15:59 INFO  epoch 60 evaluating [time: 30.81s, valid_score: 0.162300]
+Thu 18 Dec 2025 11:15:59 INFO  valid result: 
+recall@10 : 0.1623    ndcg@10 : 0.2501    mrr@10 : 0.4764
+Thu 18 Dec 2025 11:16:00 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:16:00 INFO  epoch 61 training [time: 0.19s, train loss: 10196.2572]
+Thu 18 Dec 2025 11:16:31 INFO  epoch 61 evaluating [time: 30.82s, valid_score: 0.161500]
+Thu 18 Dec 2025 11:16:31 INFO  valid result: 
+recall@10 : 0.1615    ndcg@10 : 0.2478    mrr@10 : 0.473
+Thu 18 Dec 2025 11:16:31 INFO  epoch 62 training [time: 0.17s, train loss: 10196.3728]
+Thu 18 Dec 2025 11:17:02 INFO  epoch 62 evaluating [time: 30.83s, valid_score: 0.161700]
+Thu 18 Dec 2025 11:17:02 INFO  valid result: 
+recall@10 : 0.1617    ndcg@10 : 0.2467    mrr@10 : 0.4687
+Thu 18 Dec 2025 11:17:02 INFO  epoch 63 training [time: 0.17s, train loss: 10195.1968]
+Thu 18 Dec 2025 11:17:33 INFO  epoch 63 evaluating [time: 30.83s, valid_score: 0.162300]
+Thu 18 Dec 2025 11:17:33 INFO  valid result: 
+recall@10 : 0.1623    ndcg@10 : 0.2492    mrr@10 : 0.4731
+Thu 18 Dec 2025 11:17:33 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:17:33 INFO  epoch 64 training [time: 0.23s, train loss: 10188.2471]
+Thu 18 Dec 2025 11:18:04 INFO  epoch 64 evaluating [time: 30.82s, valid_score: 0.161300]
+Thu 18 Dec 2025 11:18:04 INFO  valid result: 
+recall@10 : 0.1613    ndcg@10 : 0.2467    mrr@10 : 0.4696
+Thu 18 Dec 2025 11:18:04 INFO  epoch 65 training [time: 0.17s, train loss: 10177.5255]
+Thu 18 Dec 2025 11:18:35 INFO  epoch 65 evaluating [time: 30.81s, valid_score: 0.161800]
+Thu 18 Dec 2025 11:18:35 INFO  valid result: 
+recall@10 : 0.1618    ndcg@10 : 0.2479    mrr@10 : 0.4731
+Thu 18 Dec 2025 11:18:35 INFO  epoch 66 training [time: 0.18s, train loss: 10168.2813]
+Thu 18 Dec 2025 11:19:06 INFO  epoch 66 evaluating [time: 31.12s, valid_score: 0.163100]
+Thu 18 Dec 2025 11:19:06 INFO  valid result: 
+recall@10 : 0.1631    ndcg@10 : 0.2505    mrr@10 : 0.4769
+Thu 18 Dec 2025 11:19:07 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:19:07 INFO  epoch 67 training [time: 0.19s, train loss: 10174.7501]
+Thu 18 Dec 2025 11:19:38 INFO  epoch 67 evaluating [time: 31.26s, valid_score: 0.162000]
+Thu 18 Dec 2025 11:19:38 INFO  valid result: 
+recall@10 : 0.162    ndcg@10 : 0.2475    mrr@10 : 0.4704
+Thu 18 Dec 2025 11:19:39 INFO  epoch 68 training [time: 0.18s, train loss: 10182.5660]
+Thu 18 Dec 2025 11:20:10 INFO  epoch 68 evaluating [time: 31.13s, valid_score: 0.162700]
+Thu 18 Dec 2025 11:20:10 INFO  valid result: 
+recall@10 : 0.1627    ndcg@10 : 0.2498    mrr@10 : 0.4759
+Thu 18 Dec 2025 11:20:10 INFO  epoch 69 training [time: 0.17s, train loss: 10150.6775]
+Thu 18 Dec 2025 11:20:41 INFO  epoch 69 evaluating [time: 31.08s, valid_score: 0.162600]
+Thu 18 Dec 2025 11:20:41 INFO  valid result: 
+recall@10 : 0.1626    ndcg@10 : 0.2484    mrr@10 : 0.4727
+Thu 18 Dec 2025 11:20:41 INFO  epoch 70 training [time: 0.19s, train loss: 10151.6813]
+Thu 18 Dec 2025 11:21:12 INFO  epoch 70 evaluating [time: 31.08s, valid_score: 0.162900]
+Thu 18 Dec 2025 11:21:12 INFO  valid result: 
+recall@10 : 0.1629    ndcg@10 : 0.2493    mrr@10 : 0.4754
+Thu 18 Dec 2025 11:21:12 INFO  epoch 71 training [time: 0.18s, train loss: 10156.5806]
+Thu 18 Dec 2025 11:21:44 INFO  epoch 71 evaluating [time: 31.33s, valid_score: 0.163600]
+Thu 18 Dec 2025 11:21:44 INFO  valid result: 
+recall@10 : 0.1636    ndcg@10 : 0.25    mrr@10 : 0.4751
+Thu 18 Dec 2025 11:21:44 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:21:45 INFO  epoch 72 training [time: 0.19s, train loss: 10146.5640]
+Thu 18 Dec 2025 11:22:16 INFO  epoch 72 evaluating [time: 31.34s, valid_score: 0.162900]
+Thu 18 Dec 2025 11:22:16 INFO  valid result: 
+recall@10 : 0.1629    ndcg@10 : 0.2475    mrr@10 : 0.4696
+Thu 18 Dec 2025 11:22:16 INFO  epoch 73 training [time: 0.18s, train loss: 10139.0158]
+Thu 18 Dec 2025 11:22:47 INFO  epoch 73 evaluating [time: 31.27s, valid_score: 0.162800]
+Thu 18 Dec 2025 11:22:47 INFO  valid result: 
+recall@10 : 0.1628    ndcg@10 : 0.2485    mrr@10 : 0.4738
+Thu 18 Dec 2025 11:22:48 INFO  epoch 74 training [time: 0.18s, train loss: 10140.5762]
+Thu 18 Dec 2025 11:23:19 INFO  epoch 74 evaluating [time: 31.37s, valid_score: 0.163300]
+Thu 18 Dec 2025 11:23:19 INFO  valid result: 
+recall@10 : 0.1633    ndcg@10 : 0.2483    mrr@10 : 0.472
+Thu 18 Dec 2025 11:23:19 INFO  epoch 75 training [time: 0.18s, train loss: 10139.4562]
+Thu 18 Dec 2025 11:23:50 INFO  epoch 75 evaluating [time: 31.19s, valid_score: 0.163100]
+Thu 18 Dec 2025 11:23:50 INFO  valid result: 
+recall@10 : 0.1631    ndcg@10 : 0.2492    mrr@10 : 0.4752
+Thu 18 Dec 2025 11:23:50 INFO  epoch 76 training [time: 0.17s, train loss: 10131.8133]
+Thu 18 Dec 2025 11:24:22 INFO  epoch 76 evaluating [time: 31.27s, valid_score: 0.162800]
+Thu 18 Dec 2025 11:24:22 INFO  valid result: 
+recall@10 : 0.1628    ndcg@10 : 0.2471    mrr@10 : 0.4707
+Thu 18 Dec 2025 11:24:22 INFO  epoch 77 training [time: 0.18s, train loss: 10118.0559]
+Thu 18 Dec 2025 11:24:53 INFO  epoch 77 evaluating [time: 30.88s, valid_score: 0.163800]
+Thu 18 Dec 2025 11:24:53 INFO  valid result: 
+recall@10 : 0.1638    ndcg@10 : 0.2486    mrr@10 : 0.4725
+Thu 18 Dec 2025 11:24:53 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:24:54 INFO  epoch 78 training [time: 0.22s, train loss: 10122.6888]
+Thu 18 Dec 2025 11:25:24 INFO  epoch 78 evaluating [time: 30.76s, valid_score: 0.163900]
+Thu 18 Dec 2025 11:25:24 INFO  valid result: 
+recall@10 : 0.1639    ndcg@10 : 0.2493    mrr@10 : 0.4726
+Thu 18 Dec 2025 11:25:25 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:25:25 INFO  epoch 79 training [time: 0.18s, train loss: 10117.9161]
+Thu 18 Dec 2025 11:25:56 INFO  epoch 79 evaluating [time: 30.87s, valid_score: 0.163300]
+Thu 18 Dec 2025 11:25:56 INFO  valid result: 
+recall@10 : 0.1633    ndcg@10 : 0.2481    mrr@10 : 0.4707
+Thu 18 Dec 2025 11:25:56 INFO  epoch 80 training [time: 0.17s, train loss: 10110.1511]
+Thu 18 Dec 2025 11:26:27 INFO  epoch 80 evaluating [time: 30.84s, valid_score: 0.164000]
+Thu 18 Dec 2025 11:26:27 INFO  valid result: 
+recall@10 : 0.164    ndcg@10 : 0.2493    mrr@10 : 0.4749
+Thu 18 Dec 2025 11:26:28 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:26:28 INFO  epoch 81 training [time: 0.20s, train loss: 10102.7269]
+Thu 18 Dec 2025 11:26:59 INFO  epoch 81 evaluating [time: 31.16s, valid_score: 0.163700]
+Thu 18 Dec 2025 11:26:59 INFO  valid result: 
+recall@10 : 0.1637    ndcg@10 : 0.2476    mrr@10 : 0.47
+Thu 18 Dec 2025 11:26:59 INFO  epoch 82 training [time: 0.21s, train loss: 10104.6507]
+Thu 18 Dec 2025 11:27:30 INFO  epoch 82 evaluating [time: 31.20s, valid_score: 0.164200]
+Thu 18 Dec 2025 11:27:30 INFO  valid result: 
+recall@10 : 0.1642    ndcg@10 : 0.2484    mrr@10 : 0.4714
+Thu 18 Dec 2025 11:27:31 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:27:31 INFO  epoch 83 training [time: 0.20s, train loss: 10101.3577]
+Thu 18 Dec 2025 11:28:02 INFO  epoch 83 evaluating [time: 31.11s, valid_score: 0.163400]
+Thu 18 Dec 2025 11:28:02 INFO  valid result: 
+recall@10 : 0.1634    ndcg@10 : 0.2482    mrr@10 : 0.4732
+Thu 18 Dec 2025 11:28:02 INFO  epoch 84 training [time: 0.19s, train loss: 10096.6172]
+Thu 18 Dec 2025 11:28:33 INFO  epoch 84 evaluating [time: 31.06s, valid_score: 0.163900]
+Thu 18 Dec 2025 11:28:33 INFO  valid result: 
+recall@10 : 0.1639    ndcg@10 : 0.2487    mrr@10 : 0.4739
+Thu 18 Dec 2025 11:28:34 INFO  epoch 85 training [time: 0.20s, train loss: 10103.1894]
+Thu 18 Dec 2025 11:29:05 INFO  epoch 85 evaluating [time: 31.18s, valid_score: 0.164400]
+Thu 18 Dec 2025 11:29:05 INFO  valid result: 
+recall@10 : 0.1644    ndcg@10 : 0.2489    mrr@10 : 0.4731
+Thu 18 Dec 2025 11:29:05 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:29:06 INFO  epoch 86 training [time: 0.21s, train loss: 10079.0022]
+Thu 18 Dec 2025 11:29:37 INFO  epoch 86 evaluating [time: 31.35s, valid_score: 0.163900]
+Thu 18 Dec 2025 11:29:37 INFO  valid result: 
+recall@10 : 0.1639    ndcg@10 : 0.2481    mrr@10 : 0.4728
+Thu 18 Dec 2025 11:29:37 INFO  epoch 87 training [time: 0.19s, train loss: 10070.9680]
+Thu 18 Dec 2025 11:30:08 INFO  epoch 87 evaluating [time: 30.93s, valid_score: 0.164900]
+Thu 18 Dec 2025 11:30:08 INFO  valid result: 
+recall@10 : 0.1649    ndcg@10 : 0.25    mrr@10 : 0.475
+Thu 18 Dec 2025 11:30:09 INFO  Saving current: saved/MultiVAE-Dec-18-2025_10-43-34.pth
+Thu 18 Dec 2025 11:30:09 INFO  epoch 88 training [time: 0.19s, train loss: 10069.5720]
+Thu 18 Dec 2025 11:30:40 INFO  epoch 88 evaluating [time: 31.03s, valid_score: 0.164500]
+Thu 18 Dec 2025 11:30:40 INFO  valid result: 
+recall@10 : 0.1645    ndcg@10 : 0.2498    mrr@10 : 0.4766
+Thu 18 Dec 2025 11:30:40 INFO  epoch 89 training [time: 0.21s, train loss: 10065.9169]
+Thu 18 Dec 2025 11:31:11 INFO  epoch 89 evaluating [time: 30.85s, valid_score: 0.164200]
+Thu 18 Dec 2025 11:31:11 INFO  valid result: 
+recall@10 : 0.1642    ndcg@10 : 0.2489    mrr@10 : 0.4748
+Thu 18 Dec 2025 11:31:11 INFO  epoch 90 training [time: 0.20s, train loss: 10067.3397]
+Thu 18 Dec 2025 11:31:42 INFO  epoch 90 evaluating [time: 30.79s, valid_score: 0.163900]
+Thu 18 Dec 2025 11:31:42 INFO  valid result: 
+recall@10 : 0.1639    ndcg@10 : 0.2477    mrr@10 : 0.4694
+Thu 18 Dec 2025 11:31:42 INFO  epoch 91 training [time: 0.20s, train loss: 10065.3327]
+Thu 18 Dec 2025 11:32:13 INFO  epoch 91 evaluating [time: 30.96s, valid_score: 0.163800]
+Thu 18 Dec 2025 11:32:13 INFO  valid result: 
+recall@10 : 0.1638    ndcg@10 : 0.2466    mrr@10 : 0.468
+Thu 18 Dec 2025 11:32:13 INFO  epoch 92 training [time: 0.18s, train loss: 10067.3140]
+Thu 18 Dec 2025 11:32:44 INFO  epoch 92 evaluating [time: 30.96s, valid_score: 0.164000]
+Thu 18 Dec 2025 11:32:44 INFO  valid result: 
+recall@10 : 0.164    ndcg@10 : 0.2476    mrr@10 : 0.4707
+Thu 18 Dec 2025 11:32:44 INFO  epoch 93 training [time: 0.18s, train loss: 10052.4818]
+Thu 18 Dec 2025 11:33:15 INFO  epoch 93 evaluating [time: 30.98s, valid_score: 0.164200]
+Thu 18 Dec 2025 11:33:15 INFO  valid result: 
+recall@10 : 0.1642    ndcg@10 : 0.2477    mrr@10 : 0.4719
+Thu 18 Dec 2025 11:33:15 INFO  epoch 94 training [time: 0.18s, train loss: 10053.4637]
+Thu 18 Dec 2025 11:33:47 INFO  epoch 94 evaluating [time: 31.43s, valid_score: 0.164700]
+Thu 18 Dec 2025 11:33:47 INFO  valid result: 
+recall@10 : 0.1647    ndcg@10 : 0.2483    mrr@10 : 0.4727
+Thu 18 Dec 2025 11:33:47 INFO  epoch 95 training [time: 0.18s, train loss: 10068.3640]
+Thu 18 Dec 2025 11:34:18 INFO  epoch 95 evaluating [time: 30.88s, valid_score: 0.164800]
+Thu 18 Dec 2025 11:34:18 INFO  valid result: 
+recall@10 : 0.1648    ndcg@10 : 0.2483    mrr@10 : 0.4722
+Thu 18 Dec 2025 11:34:18 INFO  epoch 96 training [time: 0.18s, train loss: 10034.1616]
+Thu 18 Dec 2025 11:34:49 INFO  epoch 96 evaluating [time: 31.10s, valid_score: 0.163500]
+Thu 18 Dec 2025 11:34:49 INFO  valid result: 
+recall@10 : 0.1635    ndcg@10 : 0.2458    mrr@10 : 0.4683
+Thu 18 Dec 2025 11:34:49 INFO  epoch 97 training [time: 0.18s, train loss: 10068.9725]
+Thu 18 Dec 2025 11:35:20 INFO  epoch 97 evaluating [time: 31.00s, valid_score: 0.164800]
+Thu 18 Dec 2025 11:35:20 INFO  valid result: 
+recall@10 : 0.1648    ndcg@10 : 0.2489    mrr@10 : 0.4737
+Thu 18 Dec 2025 11:35:21 INFO  epoch 98 training [time: 0.18s, train loss: 10044.4736]
+Thu 18 Dec 2025 11:35:52 INFO  epoch 98 evaluating [time: 31.13s, valid_score: 0.164000]
+Thu 18 Dec 2025 11:35:52 INFO  valid result: 
+recall@10 : 0.164    ndcg@10 : 0.2471    mrr@10 : 0.4691
+Thu 18 Dec 2025 11:35:52 INFO  Finished training, best eval result in epoch 87
+Thu 18 Dec 2025 11:35:53 INFO  The running environment of this training is as follows:
++-------------+----------------+
+| Environment |     Usage      |
++=============+================+
+| CPU         |     0.60 %     |
++-------------+----------------+
+| GPU         | 1.26 G/31.74 G |
++-------------+----------------+
+| Memory      | 2.11 G/88.39 G |
++-------------+----------------+
+Thu 18 Dec 2025 11:35:53 INFO  best valid : OrderedDict([('recall@10', 0.1649), ('ndcg@10', 0.25), ('mrr@10', 0.475)])
+Thu 18 Dec 2025 11:35:53 INFO  test result: None
