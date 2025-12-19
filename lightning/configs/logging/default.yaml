@@ -1,0 +1,11 @@
+# 로그 기본 설정
+save_dir: "./saved/tensorboard_logs"
+name: "experiment"
+checkpoint_dir: "./saved/checkpoints"
+default_root_dir: "./saved/logs"
+save_top_k: 1
+
+# 로그 포맷 설정
+format: "%(asctime)s|%(levelname)s|%(filename)s:%(lineno)d| %(message)s"
+datefmt: "%H:%M:%S"
+level: "DEBUG"
