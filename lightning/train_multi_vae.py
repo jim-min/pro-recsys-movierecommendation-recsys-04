@@ -134,12 +134,12 @@ def main(cfg: DictConfig):
         weights_only=False,
     )
 
-    # Top-K 추천 생성
-    log.info(f"Generating Top-{cfg.recommend.topk} recommendations...")
+    # Validation을 위한 Top-K 추천 생성 (train_mat만 제외)
+    log.info(f"Generating Top-{cfg.recommend.topk} recommendations for validation...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     train_mat = data_module.get_train_matrix()
 
-    recommendations = recommend_topk(
+    recommendations_valid = recommend_topk(
         best_model,
         train_mat,
         k=cfg.recommend.topk,
@@ -150,10 +150,22 @@ def main(cfg: DictConfig):
     # Validation Recall@K 계산
     valid_gt = data_module.get_validation_ground_truth()
     valid_gt_list = [valid_gt[u] for u in range(data_module.num_users)]
-    pred_list = [rec.tolist() for rec in recommendations]
+    pred_list = [rec.tolist() for rec in recommendations_valid]
 
     recall = recall_at_k(valid_gt_list, pred_list, k=cfg.recommend.topk)
     log.info(f"Validation Recall@{cfg.recommend.topk}: {recall:.4f}")
+
+    # Submission을 위한 Top-K 추천 생성 (train + valid 전체 제외)
+    log.info(f"Generating Top-{cfg.recommend.topk} recommendations for submission...")
+    full_mat = data_module.get_full_matrix()
+
+    recommendations_submission = recommend_topk(
+        best_model,
+        full_mat,
+        k=cfg.recommend.topk,
+        device=device,
+        batch_size=cfg.data.batch_size,
+    )
 
     # Submission 파일 생성
     log.info("Creating submission file...")
@@ -162,7 +174,7 @@ def main(cfg: DictConfig):
 
     rows = []
     for u_idx in range(data_module.num_users):
-        for item_idx in recommendations[u_idx]:
+        for item_idx in recommendations_submission[u_idx]:
             user_id = data_module.idx2user[u_idx]
             item_id = data_module.idx2item[int(item_idx)]
             rows.append((user_id, item_id))

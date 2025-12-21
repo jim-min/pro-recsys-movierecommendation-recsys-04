@@ -327,3 +327,30 @@ class RecSysDataModule(L.LightningDataModule):
     def get_train_matrix(self):
         """학습 데이터 행렬 반환 (추천 생성 시 사용)"""
         return self.train_mat
+
+    def get_full_matrix(self):
+        """전체 데이터 행렬 반환 (train + validation, submission 생성 시 사용)"""
+        # train + validation 데이터를 모두 포함한 sparse matrix 생성
+        rows = []
+        cols = []
+
+        # train 데이터 추가
+        train_rows, train_cols = self.train_mat.nonzero()
+        rows.extend(train_rows.tolist())
+        cols.extend(train_cols.tolist())
+
+        # validation 데이터 추가
+        for u_idx, items in self.valid_gt.items():
+            for item_idx in items:
+                rows.append(u_idx)
+                cols.append(item_idx)
+
+        # sparse matrix 생성
+        data = np.ones(len(rows))
+        full_mat = sparse.csr_matrix(
+            (data, (rows, cols)),
+            shape=(self.num_users, self.num_items),
+            dtype=np.float32,
+        )
+
+        return full_mat
