@@ -11,6 +11,9 @@
 - Q2: `torch.exp(0.5 * logvar)`를 계산하는 이유는?
 
 ### [2. KL Divergence](#2-kl-divergence-1)
+```python
+kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()
+```
 - Q1: KL Loss 수식이 계산하는 것은?
 - Q2: KL Loss의 역할은?
 - Q3: `dim=1`에 대해 sum을 하고 `.mean()`을 하는 이유는?
