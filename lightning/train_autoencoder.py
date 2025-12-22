@@ -1,9 +1,10 @@
 import lightning as L
 import torch
 import logging
-import datetime
+import os
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from hydra.core.hydra_config import HydraConfig
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch import seed_everything
@@ -17,13 +18,10 @@ log = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="configs", config_name="autoencoder")
 def main(cfg: DictConfig):
-    # 로그 포맷 설정
-    logging.basicConfig(
-        level=getattr(logging, cfg.logging.level),
-        format=cfg.logging.format,
-        datefmt=cfg.logging.datefmt,
-        force=True,
-    )
+    # Hydra의 자동 출력 디렉토리 가져오기
+    hydra_cfg = HydraConfig.get()
+    run_dir = hydra_cfg.runtime.output_dir
+    log.info(f"Hydra output directory: {run_dir}")
 
     # 설정 출력
     log.info("=" * 80)
@@ -57,26 +55,38 @@ def main(cfg: DictConfig):
     # 모델 요약
     summary(autoencoder)
 
+    # Hydra 실행별 디렉토리 설정
+    checkpoint_dir = os.path.join(run_dir, "checkpoints")
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    log.info(f"Checkpoint directory: {checkpoint_dir}")
+
+    # TensorBoard 디렉토리: saved/tensorboard_logs/autoencoder/날짜/시간
+    run_parts = run_dir.split(os.sep)
+    run_timestamp = os.path.join(run_parts[-2], run_parts[-1])
+    tensorboard_dir = os.path.join(
+        cfg.tensorboard.save_dir, cfg.model_name, run_timestamp
+    )
+    os.makedirs(tensorboard_dir, exist_ok=True)
+    log.info(f"TensorBoard directory: {tensorboard_dir}")
+
     # 텐서보드 로거 설정
-    version_name = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     logger = TensorBoardLogger(
-        save_dir=cfg.logging.save_dir,
-        name=cfg.logging.name,
-        version=version_name,
+        save_dir=tensorboard_dir,
+        name="",
     )
 
     # 체크포인트 콜백 설정
     checkpoint_callback = ModelCheckpoint(
-        dirpath=cfg.logging.checkpoint_dir,
+        dirpath=checkpoint_dir,
         filename="autoencoder-{epoch:02d}-{val_loss:.2f}",
-        save_top_k=cfg.logging.save_top_k,
-        monitor="val_loss",
-        mode="min",
+        save_top_k=cfg.checkpoint.save_top_k,
+        monitor=cfg.checkpoint.monitor,
+        mode=cfg.checkpoint.mode,
     )
 
     # Trainer 설정
     trainer = L.Trainer(
-        default_root_dir=cfg.logging.default_root_dir,
+        default_root_dir=run_dir,
         max_epochs=cfg.training.max_epochs,
         devices=cfg.trainer.devices,
         logger=logger,

@@ -1,0 +1,36 @@
+# Hydra configuration for MNIST VAE training
+defaults:
+  - common: default_setup  # 공통 설정 로드
+  - _self_                 # 현재 파일(autoencoder.yaml)의 설정이 우선함
+
+# 모델 이름 (Hydra 로그 디렉토리 구조에 사용)
+model_name: "mnist-vae"
+
+# 데이터 설정
+data:
+  data_dir: "~/data/"
+  batch_size: 128
+  target_labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # 모든 숫자 사용
+
+# 모델 설정
+model:
+  input_dim: 784  # 28*28
+  hidden_dims: [256, 128]
+  latent_dim: 2
+  kl_weight: 1.0
+
+# 학습 설정
+training:
+  max_epochs: 50
+  lr: 1e-3
+  weight_decay: 0.1
+  T_max: 100  # CosineAnnealingLR
+
+# Trainer 설정
+trainer:
+  devices: "auto"
+  log_every_n_steps: 10
+  val_check_interval: 1.0
+  enable_progress_bar: true
+  enable_model_summary: true
+

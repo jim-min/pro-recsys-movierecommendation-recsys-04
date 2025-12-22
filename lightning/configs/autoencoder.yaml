@@ -1,11 +1,10 @@
 # Hydra configuration for MNIST Autoencoder training
 defaults:
-  - logging: default
-  - _self_
+  - common: default_setup  # 공통 설정 로드
+  - _self_                 # 현재 파일(autoencoder.yaml)의 설정이 우선함
 
-# 로그 설정 (공통 설정 override)
-logging:
-  name: "mnist-autoencoder"
+# 모델 이름 (Hydra 로그 디렉토리 구조에 사용)
+model_name: "autoencoder"
 
 # 데이터 설정
 data:
@@ -32,7 +31,3 @@ trainer:
   val_check_interval: 1.0
   enable_progress_bar: true
   enable_model_summary: true
-
-# 기타 설정
-seed: 42
-float32_matmul_precision: "medium"  # 'high', 'medium', or 'highest'

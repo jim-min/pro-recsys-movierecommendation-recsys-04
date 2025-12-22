@@ -1,0 +1,37 @@
+# ===== 기본 =====
+data_path: dataset/
+dataset: mylens
+
+# RecBole이 user/item 필드로 쓸 컬럼명 지정
+USER_ID_FIELD: user_id
+ITEM_ID_FIELD: item_id
+TIME_FIELD: timestamp
+
+# ===== 학습/평가 split =====
+# random split (간단)
+eval_args:
+  split: {RS: [0.9, 0.1, 0.0]}
+  group_by: user
+  order: RO
+  mode: full
+
+# ===== 평가 지표 =====
+metrics: ["Recall", "NDCG", "MRR"]
+topk: [10]
+valid_metric: Recall@10
+
+# ===== 모델/학습 =====
+learning_rate: 0.001
+train_batch_size: 2048
+eval_batch_size: 4096
+epochs: 200
+stopping_step: 10
+checkpoint_dir: saved/
+
+# implicit 추천이면 보통 negative sampling이 들어감
+neg_sampling:
+  uniform: 1
+
+# 재현성
+seed: 2025
+reproducibility: True

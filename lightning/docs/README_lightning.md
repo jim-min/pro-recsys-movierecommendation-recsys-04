@@ -16,23 +16,52 @@ uv add lightning hydra-core tensorboard torchinfo
 ```
 lightning/
 ├── configs/
-│   ├── autoencoder.yaml          # 메인 실험 설정
-│   └── logging/
-│       └── default.yaml           # 공통 로깅 설정
+│   ├── autoencoder.yaml          # Autoencoder 실험 설정
+│   ├── mnist_vae.yaml            # MNIST VAE 실험 설정
+│   ├── multi_vae.yaml            # Multi-VAE 실험 설정
+│   └── common/
+│       └── default_setup.yaml    # 공통 설정
 ├── src/
 │   ├── data/
-│   │   └── MNIST_data.py          # MNIST DataModule
+│   │   ├── MNIST_data.py         # MNIST DataModule
+│   │   └── recsys_data.py        # RecSys DataModule
 │   ├── models/
-│   │   └── auto_encoder.py        # AutoEncoder 모델
+│   │   ├── auto_encoder.py       # AutoEncoder 모델
+│   │   ├── mnist_vae.py          # MNIST VAE 모델
+│   │   └── multi_vae.py          # Multi-VAE 모델
 │   └── utils/
-│       └── visualize_autoencoder.py  # 시각화 유틸리티
+│       ├── visualize_autoencoder.py  # 시각화 유틸리티
+│       ├── metrics.py            # 평가 메트릭
+│       └── recommend.py          # 추천 생성
 ├── notebooks/
-│   └── visualize_autoencoder.ipynb   # 결과 시각화 노트북
-├── train_autoencoder.py           # 학습 스크립트
-└── saved/                         # 학습 결과 저장
-    ├── checkpoints/               # 모델 체크포인트
-    ├── tensorboard_logs/          # TensorBoard 로그
-    └── logs/                      # Trainer 로그
+│   ├── visualize_autoencoder.ipynb   # Autoencoder 시각화
+│   ├── visualize_mnist_vae.ipynb     # MNIST VAE 시각화
+│   └── visualize_multi_vae.ipynb     # Multi-VAE 시각화
+├── train_autoencoder.py          # Autoencoder 학습
+├── train_mnist_vae.py            # MNIST VAE 학습
+├── train_multi_vae.py            # Multi-VAE 학습
+├── visualize_multi_vae.py        # Multi-VAE 시각화 스크립트
+├── docs/
+│   ├── README_autoencoder.md     # Autoencoder 가이드
+│   ├── README_mnist_vae.md       # MNIST VAE 가이드
+│   ├── README_multi_vae.md       # Multi-VAE 가이드
+│   └── README_lightning.md       # 이 문서
+└── saved/                        # 학습 결과 저장
+    ├── hydra_logs/               # Hydra 실행별 로그
+    │   ├── autoencoder/          # Autoencoder 모델
+    │   ├── mnist-vae/            # MNIST VAE 모델
+    │   └── multi-vae/            # Multi-VAE 모델
+    │       └── YYYY-MM-DD/       # 날짜별 디렉토리
+    │           └── HH-MM-SS/     # 시간별 디렉토리
+    │               ├── checkpoints/  # 체크포인트
+    │               ├── submissions/  # Submission 파일 (multi-vae)
+    │               └── *.log     # 로그 파일
+    └── tensorboard_logs/         # TensorBoard 로그
+        ├── mnist-autoencoder/    # 모델별 디렉토리
+        ├── mnist-vae/
+        └── multi-vae/
+            └── YYYY-MM-DD/       # 날짜별
+                └── HH-MM-SS/     # 시간별
 ```
 
 ## 빠른 시작
@@ -73,8 +102,11 @@ tensorboard --logdir saved/tensorboard_logs
 
 ```yaml
 defaults:
-  - logging: default  # 공통 로깅 설정 로드
-  - _self_
+  - common: default_setup  # 공통 설정 로드
+  - _self_                 # 현재 파일의 설정이 우선함
+
+tensorboard:
+  name: "mnist-autoencoder"
 
 # 데이터 설정
 data:
@@ -89,19 +121,67 @@ model:
 
 # 학습 설정
 training:
-  max_epochs: 20
+  max_epochs: 2
   lr: 1e-3
+  weight_decay: 0.1
+  T_max: 100  # CosineAnnealingLR
+
+# Trainer 설정
+trainer:
+  devices: "auto"
+  log_every_n_steps: 5
+  val_check_interval: 1.0
+  enable_progress_bar: true
+  enable_model_summary: true
 ```
 
-### 공통 로깅 설정: `configs/logging/default.yaml`
+### 공통 설정: `configs/common/default_setup.yaml`
 
 ```yaml
-save_dir: "./saved/tensorboard_logs"
-checkpoint_dir: "./saved/checkpoints"
-save_top_k: 1
-format: "%(asctime)s|%(levelname)s|%(filename)s:%(lineno)d| %(message)s"
-level: "DEBUG"
+# 공통 설정 (모든 실험에서 공유)
+# @package _global_
+hydra:
+  run:
+    dir: ./saved/hydra_logs/${model_name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    chdir: False  # 로그 파일이 생성되는 위치로 작업 디렉터리 변경 안 함
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        datefmt: "%H:%M:%S"
+        format: "%(asctime)s.%(msecs)03d|%(levelname)s|%(filename)s:%(lineno)d| %(message)s"
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra:runtime.output_dir}/${hydra:job.name}.log
+    root:
+      level: INFO
+      handlers: [console, file]  # 콘솔과 파일 모두 출력
+
+tensorboard:
+  save_dir: "./saved/tensorboard_logs"
+  name: "experiment"
+
+checkpoint:
+  save_top_k: 1
+  monitor: "val_loss"
+  mode: "min"
+
+# 기타 설정
+seed: 42
+float32_matmul_precision: "medium"  # 'high', 'medium', or 'highest'
 ```
+
+**주요 변경사항**:
+- Hydra 로그 디렉토리: `saved/hydra_logs/${model_name}/날짜/시간/`
+- 각 모델 config에서 `model_name` 정의 (예: `model_name: "multi-vae"`)
+- 모델별로 독립적인 디렉토리 구조 유지
 
 ## MNIST Autoencoder 예제
 
@@ -177,14 +257,6 @@ class MNISTDataModule(L.LightningDataModule):
 @hydra.main(version_base=None, config_path="configs",
             config_name="autoencoder")
 def main(cfg: DictConfig):
-    # 로그 포맷 설정
-    logging.basicConfig(
-        level=getattr(logging, cfg.logging.level),
-        format=cfg.logging.format,
-        datefmt=cfg.logging.datefmt,
-        force=True,
-    )
-
     # 데이터 준비
     mnist = MNISTDataModule(
         data_dir=cfg.data.data_dir,
@@ -200,19 +272,25 @@ def main(cfg: DictConfig):
 
     # 로거 및 콜백 설정
     logger = TensorBoardLogger(
-        save_dir=cfg.logging.save_dir,
-        name=cfg.logging.name,
+        save_dir=tensorboard_dir,
+        name="",
     )
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath=cfg.logging.checkpoint_dir,
-        save_top_k=cfg.logging.save_top_k,
-        monitor="val_loss",
+        dirpath=cfg.checkpoint.dirpath,
+        save_top_k=cfg.checkpoint.save_top_k,
+        monitor=cfg.checkpoint.monitor,
+        mode=cfg.checkpoint.mode,
     )
 
     # Trainer 생성 및 학습
     trainer = L.Trainer(
         max_epochs=cfg.training.max_epochs,
+        devices=cfg.trainer.devices,
+        log_every_n_steps=cfg.trainer.log_every_n_steps,
+        val_check_interval=cfg.trainer.val_check_interval,
+        enable_progress_bar=cfg.trainer.enable_progress_bar,
+        enable_model_summary=cfg.trainer.enable_model_summary,
         logger=logger,
         callbacks=[checkpoint_callback],
     )
@@ -252,11 +330,11 @@ python train_autoencoder.py --cfg job
 from lightning.pytorch.callbacks import ModelCheckpoint
 
 checkpoint_callback = ModelCheckpoint(
-    dirpath=cfg.logging.checkpoint_dir,
+    dirpath=cfg.checkpoint.checkpoint_dir,
     filename="autoencoder-{epoch:02d}-{val_loss:.2f}",
-    save_top_k=cfg.logging.save_top_k,
-    monitor="val_loss",
-    mode="min",
+    save_top_k=cfg.checkpoint.save_top_k,
+    monitor=cfg.checkpoint.monitor,
+    mode=cfg.checkpoint.mode,
 )
 
 trainer = L.Trainer(callbacks=[checkpoint_callback])
@@ -292,8 +370,10 @@ trainer:
 
 ```python
 # 체크포인트에서 자동 로드
+# Hydra 실행 디렉토리 기반 경로
 autoencoder = AutoEncoder.load_from_checkpoint(
-    "saved/checkpoints/autoencoder-epoch=19-val_loss=0.05.ckpt"
+    "saved/hydra_logs/2025-12-20/16-44-09/checkpoints/autoencoder-epoch=19-val_loss=0.05.ckpt",
+    weights_only=False,
 )
 
 # 추론 모드

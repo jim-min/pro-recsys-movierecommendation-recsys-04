@@ -1,0 +1,36 @@
+# @package _global_
+hydra:
+  run:
+    dir: ./saved/hydra_logs/${model_name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    chdir: False # 로그 파일이 생성되는 위치로 작업 디렉터리 변경
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        datefmt: "%H:%M:%S"
+        format: "%(asctime)s.%(msecs)03d|%(levelname)s|%(filename)s:%(lineno)d| %(message)s"
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra:runtime.output_dir}/${hydra:job.name}.log
+    root:
+      level: INFO
+      handlers: [console, file] # 콘솔과 파일 모두 출력
+
+tensorboard:
+  save_dir: ./saved/tensorboard_logs
+
+checkpoint:
+  save_top_k: 1
+  monitor: "val_loss"
+  mode: "min"
+
+# 기타 설정
+seed: 42
+float32_matmul_precision: "medium"  # 'high', 'medium', or 'highest'

@@ -9,6 +9,7 @@ class AutoEncoder(L.LightningModule):
         super().__init__()
         self.encoder = Encoder()
         self.decoder = Decoder()
+        # 클래스 변수로 로거 생성
 
     def training_step(self, batch, batch_idx):
         x, _ = batch
