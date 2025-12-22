@@ -1,7 +1,12 @@
+# local files that shouldn't be uploaded
 /data
+data/
+SASRec/
+
 /baseline
 tmp/
 saved/
+checkpoints/
 outputs/
 
 # https://github.com/github/gitignore/blob/main/Python.gitignore
