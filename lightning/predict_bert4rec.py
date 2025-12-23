@@ -77,7 +77,9 @@ def main(cfg: DictConfig):
     # checkpoint_dir: run_dir/checkpoints
     # run_dir: checkpoint_dir의 상위 디렉토리
     run_dir = os.path.dirname(checkpoint_dir)
-    output_path = os.path.join(run_dir, "submissions", "bert4rec_predictions.csv")
+    output_path = os.path.join(
+        run_dir, "submissions", f"bert4rec_predictions_{topk}.csv"
+    )
 
     # Create submissions directory
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
