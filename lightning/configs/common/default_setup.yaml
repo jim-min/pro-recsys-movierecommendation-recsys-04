@@ -31,6 +31,11 @@ checkpoint:
   monitor: "val_loss"
   mode: "min"
 
+# Data caching 설정
+data_cache:
+  use_cache: true                    # 캐시 사용 여부
+  cache_dir: ~/.cache/recsys         # 캐시 저장 디렉토리
+
 # 기타 설정
 seed: 42
 float32_matmul_precision: "medium"  # 'high', 'medium', or 'highest'

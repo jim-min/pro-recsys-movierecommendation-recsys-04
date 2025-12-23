@@ -20,6 +20,8 @@ from tqdm import tqdm
 from src.models.bert4rec import BERT4Rec
 from src.data.bert4rec_data import BERT4RecDataModule
 from src.utils import get_directories, get_latest_checkpoint
+from src.utils.recommend import recommend_topk
+from src.utils.metrics import recall_at_k
 
 log = logging.getLogger(__name__)
 
@@ -40,12 +42,12 @@ def main(cfg: DictConfig):
     datamodule = BERT4RecDataModule(
         data_dir=cfg.data.data_dir,
         data_file=cfg.data.data_file,
-        batch_size=cfg.inference.get("batch_size", 256),
+        batch_size=cfg.inference.batch_size,
         max_len=cfg.model.max_len,
         mask_prob=cfg.model.mask_prob,  # Not used in inference
-        min_interactions=cfg.data.get("min_interactions", 3),
+        min_interactions=cfg.data.min_interactions,
         seed=cfg.data.seed,
-        num_workers=cfg.data.get("num_workers", 4),
+        num_workers=cfg.data.num_workers,
     )
 
     # Setup data
@@ -53,7 +55,7 @@ def main(cfg: DictConfig):
     log.info(f"num_users: {datamodule.num_users}, num_items: {datamodule.num_items}")
 
     # Load checkpoint
-    checkpoint_path = cfg.inference.get("checkpoint_path", None)
+    checkpoint_path = cfg.inference.checkpoint_path
 
     if checkpoint_path is None:
         # Find the latest checkpoint in the checkpoint directory
@@ -70,8 +72,8 @@ def main(cfg: DictConfig):
     log.info(f"Using device: {device}")
 
     # Get inference parameters
-    topk = cfg.inference.get("topk", 10)
-    batch_size = cfg.inference.get("batch_size", 256)
+    topk = cfg.inference.topk
+    batch_size = cfg.inference.batch_size
 
     # Output path: run_dir/submissions/bert4rec_predictions.csv
     # checkpoint_dir: run_dir/checkpoints
@@ -84,7 +86,10 @@ def main(cfg: DictConfig):
     # Create submissions directory
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # Generate predictions
+    # === Validation Evaluation ===
+    # 이미 트레인과정에서 NDCG@10을 계산함여 출력함
+
+    # Generate predictions ================================================
     log.info(
         f"Generating top-{topk} recommendations for {datamodule.num_users} users..."
     )
