@@ -13,18 +13,55 @@ streamlit run data_explorer/app.py
 ```
 
 ### 주요 기능
-1.  **Configuration (Sidebar)**
-    *   **Data Directory**: 데이터 파일이 위치한 경로를 지정합니다. (기본값: `data/train`)
-    *   **Time Range**: 전체 데이터 중 분석하고 싶은 기간을 슬라이더로 조정합니다.
-    *   **User Selection**: 특정 유저를 직접 선택하거나(Specific Users), ID 범위로 선택합니다(User ID Range).
-2.  **Dashboard Tabs**
-    *   **User Interactions & Stats**: 선택한 유저의 시간대별 인터랙션(Scatter Plot)과 기간별 활동량(Bar Chart)을 시각화합니다.
-    *   **Item Info**: Movie ID를 선택하여 영화의 메타데이터(장르, 감독 등)를 조회합니다.
-    *   **Overall Statistics**: Top/Bottom K 유저 및 아이템 통계를 조회하고, 관심 유저를 바로 Sidebar 선택에 추가할 수 있습니다.
+탭 구조 (4개의 독립적인 분석 탭)
+#### 1. 👥 User Subset Analysis
+특정 사용자들에 대한 심층 분석
+- **User Selection**: Specific Users / User ID Range / Random Sample
+- **시각화**: 사용자별 인터랙션 타임라인
+- **통계**: 사용자별 평가 수, 고유 아이템 수, 활동 기간
+- **시간대별 분포**: Day/Week/Month/Year 단위 집계
+
+#### 2. 🌐 All Users Analysis  
+전체 사용자에 대한 패턴 분석
+- **Early Account Activity Analysis** (핵심 기능)
+  - 30분 단위로 초기 평가 패턴 분석
+  - Bulk Rater 자동 탐지 및 통계
+  - 평가 속도(ratings/minute), 초기 평가 비율 등
+  - 개별 사용자 타임라인 시각화
+- **User Rankings**: Top/Bottom K 사용자
+
+#### 3. 🎬 Item Subset Analysis
+특정 아이템들에 대한 심층 분석
+- **Item Selection**: Specific Items / Item ID Range / Random Sample  
+- **통계**: 아이템별 평가 수, 고유 사용자 수
+- **인기도 추이**: 시간대별 아이템 평가 패턴
+- **상세 정보**: 제목, 장르, 감독, 작가, 연도 등
+
+#### 4. 📊 All Items Analysis
+전체 아이템에 대한 패턴 분석
+- **Item Rankings**: Top/Bottom K 아이템
+- **분포 분석**: 아이템별 평가 수 분포 히스토그램
+- **Interaction Matrix**: User-Item 조합 통계
 
 ---
 
-## 2. 구현상 주요 고려사항 (Implementation Considerations)
+## 2. 필요한 데이터 파일
+
+데이터는 `data/train/` 디렉토리에 다음 파일들이 있어야 합니다:
+
+```
+data/train/
+├── train_ratings.csv       # 필수: user, item, time 컬럼
+├── titles.tsv              # 선택: item, title 컬럼
+├── genres.tsv              # 선택: item, genre 컬럼
+├── directors.tsv           # 선택: item, director 컬럼
+├── writers.tsv             # 선택: item, writer 컬럼
+├── years.tsv               # 선택: item, year 컬럼
+└── Ml_item2attributes.json # 선택: {item_id: [genre_ids]} 매핑
+```
+---
+
+## 3. 구현상 주요 고려사항 (Implementation Considerations)
 
 ### 데이터 처리
 *   **Implicit Feedback 가정**: `train_ratings.csv`에 명시적인 평점(score) 컬럼이 없을 경우, 인터랙션 발생 여부(Event)로 간주하여 시각화했습니다.
@@ -59,3 +96,7 @@ streamlit run data_explorer/app.py
 *   **헤더 메트릭 추가**: 앱 상단에 Total Users, Total Movies, Total Interactions 표시.
 *   **UX 개선**: 중복된 로딩 성공 메시지 제거.
 *   **Session State 버그 수정**: Sidebar 유저 선택과 통계 탭 간의 싱크 문제 해결 (Callback 방식 도입).
+
+### v2.0.0
+*   **탭 구분**: 4개의 대시보드 탭 생성. 각각 일부유저 / 전체유저 / 일부아이템 / 전체아이템 데이터에 관한 EDA를 몰아 볼 수 있도록 함.
+    *   일부 데이터를 선정할 때, 1)특정 2)범위 3)랜덤샘플링 세 가지 방법을 설정
