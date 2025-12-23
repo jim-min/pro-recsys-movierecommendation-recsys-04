@@ -74,60 +74,38 @@ def main(cfg: DictConfig):
         batch_users = user_indices[start:end]
 
         seqs = []
-        mask_positions = []
         rated_sets = []
         for u in batch_users:
             # Create sequence with mask tokens at specific positions
-            seq = user_train[u][-cfg.model.max_len:]  # Get last max_len items
+            seq = user_train[u] + [mask_token]
+            
+            seq = seq[-cfg.model.max_len:]
+
             if len(seq) < cfg.model.max_len:
                 seq = [0] * (cfg.model.max_len - len(seq)) + seq
             
-            # Store original values at mask positions
-            mask_pos = [0, 25, 50, 75, -1]  # Positions to mask
-            masked_values = []
-            for pos in mask_pos:
-                if pos < len(seq):  # Ensure position is within sequence length
-                    masked_values.append(seq[pos])
-                    seq[pos] = mask_token
-            
             seqs.append(seq)
-            mask_positions.append(masked_values)
             rated_sets.append(set(user_train[u]))
 
-        seqs = np.array(seqs, dtype=np.int64)
+        seqs = torch.LongTensor(seqs).to(device)
 
         with torch.no_grad():
             logits = model(seqs)
             
-            # Initialize scores tensor with negative infinity
-            batch_size = logits.size(0)
-            num_items = logits.size(-1)
-            scores = torch.full((batch_size, 5, num_items), -1e9, device=device)
-            
-            # Get scores for each masked position
-            mask_positions_tensor = torch.tensor([0, 15, 25, 35, -1], device=device)
-            for i, pos in enumerate(mask_positions_tensor):
-                if pos < 0:  # Handle negative index for last position
-                    pos = logits.size(1) - 1
-                scores[:, i, :] = logits[:, pos, :]
-            
-            # Mask out invalid items
-            scores[:, :, 0] = -1e9  # Mask padding
-            scores[:, :, mask_token] = -1e9  # Mask mask_token itself
-            
+            # 마지막 시점(MASK 위치)의 예측값만 가져오기
+            final_logits = logits[:, -1, :] # (batch_size, num_items + 2)
+
+            # 마스킹 처리 (점수를 매우 낮게 설정)
+            final_logits[:, 0] = -1e9          # Padding 제외
+            final_logits[:, mask_token] = -1e9 # Mask Token 자체 제외
+        
             # Mask out already rated items
             for i, rated in enumerate(rated_sets):
                 if rated:
-                    scores[i, :, list(rated)] = -1e9
+                    final_logits[i, list(rated)] = -1e9
             
-            # Reshape to process pairs of positions
-            scores = scores.view(batch_size * 5, -1)
-            _, top_items = torch.topk(scores, k=2, dim=1)  # Get top2 items for each position
-            
-            # Reshape back to (batch_size, 5, top2)
-            top_items = top_items.view(batch_size, -1)
-            
-        top_items = top_items.detach().cpu().numpy()
+            _, top_items = torch.topk(final_logits, k=topk, dim=1)
+            top_items = top_items.detach().cpu().numpy()
 
         for row_i, u in enumerate(batch_users):
             user_id = user_ids[u]
