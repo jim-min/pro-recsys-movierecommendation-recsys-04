@@ -12,8 +12,6 @@ from utils import (
     get_top_k_interactions,
     analyze_early_account_activity,
     plot_early_activity_distribution,
-    get_bulk_rater_details,
-    plot_user_early_activity_timeline,
     compare_bulk_vs_regular_users,
 )
 import plotly.express as px
@@ -298,6 +296,7 @@ def main():
                     filtered_df,
                     time_window_hours=time_window_hours,
                     min_ratings=min_ratings,
+                    show_progress=True,
                 )
                 st.session_state["early_stats"] = early_stats
                 st.session_state["time_window_hours"] = time_window_hours
@@ -406,67 +405,6 @@ def main():
                 )
                 fig_top.update_xaxes(type="category")
                 st.plotly_chart(fig_top, use_container_width=True)
-
-            # Individual user analysis
-            st.subheader("🔎 Individual User Deep Dive")
-
-            bulk_user_list = early_stats[early_stats["is_bulk_rater"] == True][
-                "user"
-            ].tolist()
-
-            if bulk_user_list:
-                selected_detail_user = st.selectbox(
-                    "Select a Bulk Rater to Analyze",
-                    sorted(bulk_user_list),
-                    key="tab2_detail_user",
-                    help="Select a user to see detailed timeline of their early activity",
-                )
-
-                if selected_detail_user:
-                    detail_info = get_bulk_rater_details(
-                        filtered_df, early_stats, selected_detail_user
-                    )
-
-                    detail_col1, detail_col2, detail_col3, detail_col4 = st.columns(4)
-                    detail_col1.metric(
-                        "Early Ratings", int(detail_info["stats"]["early_ratings"])
-                    )
-                    detail_col2.metric(
-                        "Total Ratings", int(detail_info["stats"]["total_ratings"])
-                    )
-                    detail_col3.metric(
-                        "Early Duration",
-                        f"{detail_info['stats']['early_duration_minutes']:.1f} min",
-                    )
-                    detail_col4.metric(
-                        "Velocity",
-                        f"{detail_info['stats']['ratings_per_minute']:.2f} ratings/min",
-                    )
-
-                    fig_timeline = plot_user_early_activity_timeline(
-                        filtered_df, selected_detail_user, time_window_hours=time_window
-                    )
-                    st.plotly_chart(fig_timeline, use_container_width=True)
-
-                    with st.expander("📋 View Early Ratings Data"):
-                        st.dataframe(
-                            detail_info["early_ratings"], use_container_width=True
-                        )
-            else:
-                st.info(
-                    "No bulk raters found with current parameters. Try adjusting the time window or minimum ratings."
-                )
-
-            # Export option
-            st.subheader("💾 Export Results")
-            csv = early_stats.to_csv(index=False)
-            st.download_button(
-                label="Download Early Activity Analysis (CSV)",
-                data=csv,
-                file_name=f"early_activity_analysis_{time_window_minutes}min.csv",
-                mime="text/csv",
-                key="tab2_download",
-            )
 
         # Overall User Rankings
         st.markdown("---")

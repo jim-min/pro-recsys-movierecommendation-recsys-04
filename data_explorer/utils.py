@@ -3,6 +3,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from typing import List, Optional
+import time
+from plotly.subplots import make_subplots
 
 
 def plot_user_interactions(
@@ -134,7 +136,9 @@ def get_top_k_interactions(
     return res.to_frame("count").reset_index()
 
 
-def analyze_early_account_activity(df, time_window_hours=0.5, min_ratings=5):
+def analyze_early_account_activity(
+    df, time_window_hours=0.5, min_ratings=5, show_progress=False
+):
     """
     Analyze early account activity patterns to identify initial bulk ratings.
     계정 생성 초기에 짧은 시간 내 몰아서 평가한 패턴을 분석합니다.
@@ -154,8 +158,18 @@ def analyze_early_account_activity(df, time_window_hours=0.5, min_ratings=5):
     DataFrame with early activity statistics per user
     """
     results = []
+    all_users = df["user"].unique()
+    total_users = len(all_users)
 
-    for user in df["user"].unique():
+    # Create progress bar if requested
+    if show_progress:
+        import streamlit as st
+
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        start_time = time.time()
+
+    for idx, user in enumerate(all_users):
         user_df = df[df["user"] == user].sort_values("datetime")
 
         if len(user_df) == 0:
@@ -208,6 +222,44 @@ def analyze_early_account_activity(df, time_window_hours=0.5, min_ratings=5):
             }
         )
 
+        # Update progress bar (every 1% or every 100 users, whichever is smaller)
+        if show_progress:
+            update_interval = min(100, max(1, total_users // 100))
+            if (idx + 1) % update_interval == 0 or idx == total_users - 1:
+                progress = (idx + 1) / total_users
+                progress_bar.progress(progress)
+
+                # Calculate time estimates
+                elapsed_time = time.time() - start_time
+                users_per_sec = (idx + 1) / elapsed_time if elapsed_time > 0 else 0
+                remaining_users = total_users - (idx + 1)
+                eta_seconds = (
+                    remaining_users / users_per_sec if users_per_sec > 0 else 0
+                )
+
+                # Format time
+                if eta_seconds < 60:
+                    eta_str = f"{eta_seconds:.0f}s"
+                elif eta_seconds < 3600:
+                    eta_str = f"{eta_seconds/60:.1f}m"
+                else:
+                    eta_str = f"{eta_seconds/3600:.1f}h"
+
+                status_text.text(
+                    f"Processing: {idx + 1:,}/{total_users:,} users ({progress*100:.1f}%) | "
+                    f"Speed: {users_per_sec:.1f} users/s | ETA: {eta_str}"
+                )
+
+    # Complete progress bar
+    if show_progress:
+        progress_bar.progress(1.0)
+        elapsed_time = time.time() - start_time
+        if elapsed_time < 60:
+            time_str = f"{elapsed_time:.1f}s"
+        else:
+            time_str = f"{elapsed_time/60:.1f}m"
+        status_text.text(f"✅ Complete! Analyzed {total_users:,} users in {time_str}")
+
     return pd.DataFrame(results).sort_values("early_ratings", ascending=False)
 
 
@@ -222,6 +274,7 @@ def plot_early_activity_distribution(early_stats_df):
             "Early Rating Duration (minutes)",
             "Bulk Raters vs Regular Users",
         ),
+        specs=[[{"type": "xy"}, {"type": "xy"}], [{"type": "xy"}, {"type": "domain"}]],
     )
 
     # 1. Distribution of early ratings count
@@ -263,108 +316,6 @@ def plot_early_activity_distribution(early_stats_df):
     fig.update_layout(
         height=800, showlegend=False, title_text="Early Account Activity Analysis"
     )
-    return fig
-
-
-def get_bulk_rater_details(df, early_stats_df, user_id):
-    """Get detailed information about a specific user's early rating behavior"""
-    user_stats = early_stats_df[early_stats_df["user"] == user_id].iloc[0]
-    user_ratings = df[df["user"] == user_id].sort_values("datetime")
-
-    first_rating_time = user_stats["first_rating_time"]
-    time_window_end = first_rating_time + pd.Timedelta(hours=24)
-    early_ratings = user_ratings[user_ratings["datetime"] <= time_window_end]
-
-    return {
-        "stats": user_stats,
-        "early_ratings": early_ratings,
-        "all_ratings": user_ratings,
-    }
-
-
-def plot_user_early_activity_timeline(df, user_id, time_window_hours=0.5):
-    """Plot timeline of a specific user's early activity"""
-    user_df = df[df["user"] == user_id].sort_values("datetime")
-
-    if len(user_df) == 0:
-        return None
-
-    first_time = user_df["datetime"].min()
-    time_window_end = first_time + pd.Timedelta(hours=time_window_hours)
-
-    # Separate early and later ratings
-    early_df = user_df[user_df["datetime"] <= time_window_end]
-    later_df = user_df[user_df["datetime"] > time_window_end]
-
-    # Calculate time window in minutes for display
-    time_window_minutes = time_window_hours * 60
-
-    fig = go.Figure()
-
-    # Plot early ratings
-    fig.add_trace(
-        go.Scatter(
-            x=early_df["datetime"],
-            y=early_df["item"],
-            mode="markers",
-            name=f"Early Ratings ({len(early_df)})",
-            marker=dict(size=10, color="red", symbol="circle"),
-            text=[
-                f"Item: {item}<br>Time: {dt}"
-                for item, dt in zip(early_df["item"], early_df["datetime"])
-            ],
-            hovertemplate="%{text}<extra></extra>",
-        )
-    )
-
-    # Plot later ratings
-    if len(later_df) > 0:
-        fig.add_trace(
-            go.Scatter(
-                x=later_df["datetime"],
-                y=later_df["item"],
-                mode="markers",
-                name=f"Later Ratings ({len(later_df)})",
-                marker=dict(size=8, color="blue", symbol="diamond"),
-                text=[
-                    f"Item: {item}<br>Time: {dt}"
-                    for item, dt in zip(later_df["item"], later_df["datetime"])
-                ],
-                hovertemplate="%{text}<extra></extra>",
-            )
-        )
-
-    # Add vertical line at window end
-    window_label = (
-        f"{int(time_window_minutes)}분"
-        if time_window_hours < 1
-        else f"{time_window_hours}시간"
-    )
-    fig.add_vline(
-        x=time_window_end,
-        line_dash="dash",
-        line_color="green",
-        annotation_text=f"{window_label} 구간",
-    )
-
-    # Calculate and display duration info
-    if len(early_df) > 1:
-        duration_minutes = (
-            early_df["datetime"].max() - early_df["datetime"].min()
-        ).total_seconds() / 60
-        duration_text = (
-            f"초기 {len(early_df)}개 평점을 {duration_minutes:.1f}분 동안 작성"
-        )
-    else:
-        duration_text = f"초기 평점: {len(early_df)}개"
-
-    fig.update_layout(
-        title=f"User {user_id} Rating Timeline<br><sub>{duration_text}</sub>",
-        xaxis_title="Time",
-        yaxis_title="Item ID",
-        height=500,
-    )
-
     return fig
 
 
