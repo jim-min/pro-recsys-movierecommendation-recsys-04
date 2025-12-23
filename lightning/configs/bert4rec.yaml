@@ -1,0 +1,54 @@
+# Hydra configuration for BERT4Rec (Sequential Recommendation)
+defaults:
+  - common: default_setup  # 공통 설정 로드
+  - _self_                 # 현재 파일의 설정이 우선함
+
+# 모델 이름 (Hydra 로그 디렉토리 구조에 사용)
+model_name: "bert4rec"
+
+# 데이터 설정
+data:
+  data_dir: "~/data/train/"
+  data_file: "train_ratings.csv"
+  batch_size: 128
+  min_interactions: 3
+  seed: 42
+  num_workers: 4
+
+# 모델 설정
+model:
+  hidden_units: 64          # Hidden dimension size
+  num_heads: 4              # Number of attention heads (hidden_units must be divisible by this)
+  num_layers: 3             # Number of transformer blocks
+  max_len: 50               # Maximum sequence length
+  dropout_rate: 0.3         # Dropout probability
+  mask_prob: 0.15           # Probability of masking items (BERT-style)
+  share_embeddings: true    # Share item embeddings with output layer (recommended)
+
+# 학습 설정
+training:
+  num_epochs: 300
+  lr: 0.0015                # Learning rate
+  weight_decay: 0.0         # L2 regularization
+  save_dir: "saved/bert4rec"
+  monitor_metric: "val_ndcg@10"  # Metric to monitor for checkpointing
+  early_stopping: true     # Enable early stopping
+  early_stopping_patience: 20
+  accelerator: "auto"       # "cpu", "gpu", "tpu", or "auto"
+  devices: "auto"           # Number of devices or "auto"
+  log_every_n_steps: 50
+  val_check_interval: 1.0   # Validate every N epochs (1.0 = every epoch)
+  gradient_clip_val: 0.0    # Gradient clipping (0.0 = disabled)
+  deterministic: false      # For reproducibility (slower)
+  precision: "32-true"      # "32-true", "16-mixed", "bf16-mixed"
+
+checkpoint:
+  save_top_k: 1
+  monitor: "val_ndcg@10"
+  mode: "max"
+
+# 추론 설정
+inference:
+  checkpoint_path: null     # Path to checkpoint (null = use last.ckpt)
+  topk: 10                  # Number of items to recommend
+  batch_size: 256           # Inference batch size
