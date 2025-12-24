@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import os
 import pandas as pd
@@ -13,8 +14,34 @@ from utils import (
     analyze_early_account_activity,
     plot_early_activity_distribution,
     compare_bulk_vs_regular_users,
+    dist_summary,
+    heavy_share,
+    cold_user_ratio,
+    analyze_genre_distribution,
+    plot_genre_distribution,
+    calculate_concentration_metrics,
+    plot_concentration_analysis,
+    plot_distribution_summary,
+    analyze_user_segments,
+    plot_user_segmentation,
+    analyze_genre_combinations,
+    find_rare_but_popular_combos,
+    plot_rare_popular_combos,
+    find_cold_start_items,
+    analyze_cold_start_items,
+    analyze_temporal_patterns,
+    plot_temporal_heatmap,
+    plot_temporal_trends,
+    check_data_quality,
+    plot_data_quality_summary,
+    check_user_item_validity,
+    check_temporal_validity,
+    generate_data_quality_summary_text,
+    check_metadata_quality,
+    generate_metadata_summary_text,
 )
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="RecSys Data Explorer", layout="wide")
 
@@ -67,12 +94,14 @@ def main():
 
     # --- Main Content ---
 
-    tab1, tab2, tab3, tab4 = st.tabs(
+    tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs(
         [
+            "🔍 Data Quality",
             "👥 User Subset Analysis",
             "🌐 All Users Analysis",
             "🎬 Item Subset Analysis",
             "📊 All Items Analysis",
+            "📈 Advanced EDA",
         ]
     )
 
@@ -84,6 +113,379 @@ def main():
 
     all_users = sorted(filtered_df["user"].unique())
     all_items = sorted(filtered_df["item"].unique())
+
+    # ==================== Tab 0: Data Quality ====================
+    with tab0:
+        st.header("🔍 Data Quality Check")
+        st.markdown(
+            """
+        **전체 데이터셋 품질 검사**: Ratings, Metadata (Titles, Genres, Directors, Writers, Years) 모두 검증
+        - **결측치**: 각 컬럼별 누락 데이터 비율
+        - **중복**: 중복 레코드 수
+        - **이상치**: IQR 방법으로 통계적 이상치 탐지
+        - **타입 검증**: 데이터 타입 및 유효성
+        - **메타데이터**: 영화 정보 완성도 체크
+        """
+        )
+
+        # Quality check button
+        if st.button(
+            "🔄 Run Quality Check",
+            type="primary",
+            key="run_quality_check",
+        ):
+
+            # Initialize containers for progress tracking
+            overall_progress = st.progress(0)
+            overall_status = st.empty()
+
+            with st.spinner("Analyzing data quality..."):
+
+                # ====================  1. Ratings Data Quality ====================
+                overall_status.text("📊 [1/6] Checking Ratings Data...")
+
+                progress_bar_1 = st.progress(0)
+                status_text_1 = st.empty()
+
+                quality_report = check_data_quality(
+                    filtered_df,
+                    "Ratings Data",
+                    show_progress=True,
+                    progress_bar=progress_bar_1,
+                    status_text=status_text_1,
+                )
+
+                overall_progress.progress(1 / 6)
+
+                # ==================== 2. User/Item Validity ====================
+                overall_status.text("🔍 [2/6] Validating User & Item IDs...")
+
+                validity_report = check_user_item_validity(filtered_df, item_info_df)
+
+                overall_progress.progress(2 / 6)
+
+                # ==================== 3. Temporal Validity ====================
+                overall_status.text("📅 [3/6] Checking Temporal Data...")
+
+                temporal_report = check_temporal_validity(filtered_df)
+
+                overall_progress.progress(3 / 6)
+
+                # ==================== 4. Metadata Quality ====================
+                overall_status.text("📋 [4/6] Checking Metadata Quality...")
+
+                if not item_info_df.empty:
+                    metadata_reports = check_metadata_quality(
+                        item_info_df, show_progress=True
+                    )
+                else:
+                    metadata_reports = {}
+
+                overall_progress.progress(4 / 6)
+
+                # ==================== 5. Item Info Quality (Detailed) ====================
+                overall_status.text("📑 [5/6] Analyzing Item Info Dataset...")
+
+                progress_bar_5 = st.progress(0)
+                status_text_5 = st.empty()
+
+                if not item_info_df.empty:
+                    item_quality_report = check_data_quality(
+                        item_info_df,
+                        "Item Info Data",
+                        show_progress=True,
+                        progress_bar=progress_bar_5,
+                        status_text=status_text_5,
+                    )
+                else:
+                    item_quality_report = None
+
+                overall_progress.progress(5 / 6)
+
+                # ==================== 6. Save Results ====================
+                overall_status.text("💾 [6/6] Finalizing reports...")
+
+                st.session_state["quality_report"] = quality_report
+                st.session_state["validity_report"] = validity_report
+                st.session_state["temporal_report"] = temporal_report
+                st.session_state["metadata_reports"] = metadata_reports
+                st.session_state["item_quality_report"] = item_quality_report
+
+                overall_progress.progress(1.0)
+                overall_status.text("✅ Quality check complete!")
+
+        # ==================== Display Results ====================
+        if "quality_report" in st.session_state:
+            quality_report = st.session_state["quality_report"]
+            validity_report = st.session_state["validity_report"]
+            temporal_report = st.session_state["temporal_report"]
+            metadata_reports = st.session_state.get("metadata_reports", {})
+            item_quality_report = st.session_state.get("item_quality_report", None)
+
+            # ==================== Summary Section ====================
+            st.markdown("---")
+            st.subheader("📊 Executive Summary")
+
+            # Create tabs for different datasets
+            sum_tab1, sum_tab2, sum_tab3 = st.tabs(
+                ["Ratings Data", "Metadata Summary", "Item Info Data"]
+            )
+
+            with sum_tab1:
+                # Ratings summary
+                summary_text = generate_data_quality_summary_text(
+                    quality_report, validity_report, temporal_report
+                )
+                st.markdown(summary_text)
+
+                # Quick metrics
+                col1, col2, col3, col4 = st.columns(4)
+
+                missing_total = quality_report["missing_values"]["Missing Count"].sum()
+                col1.metric(
+                    "Missing Values",
+                    f"{missing_total:,}",
+                    f"{missing_total/quality_report['shape'][0]*100:.2f}%",
+                )
+
+                col2.metric(
+                    "Duplicate Rows",
+                    f"{quality_report['duplicates']['total_duplicates']:,}",
+                    f"{quality_report['duplicates']['duplicate_pct']:.2f}%",
+                )
+
+                outlier_total = sum(
+                    [v["count"] for v in quality_report["outliers"].values()]
+                )
+                col3.metric("Total Outliers", f"{outlier_total:,}")
+
+                col4.metric(
+                    "Unique Pairs",
+                    f"{validity_report['user_item_pairs']['total_unique_pairs']:,}",
+                )
+
+            with sum_tab2:
+                # Metadata summary
+                if metadata_reports:
+                    metadata_summary = generate_metadata_summary_text(metadata_reports)
+                    st.markdown(metadata_summary)
+
+                    # Metadata completeness chart
+                    completeness_data = []
+                    for name, report in metadata_reports.items():
+                        completeness_pct = 100 - report["missing_pct"]
+                        completeness_data.append(
+                            {
+                                "Metadata": name,
+                                "Completeness": completeness_pct,
+                                "Missing": report["missing_pct"],
+                            }
+                        )
+
+                    completeness_df = pd.DataFrame(completeness_data)
+
+                    fig_completeness = go.Figure()
+
+                    fig_completeness.add_trace(
+                        go.Bar(
+                            name="Complete",
+                            x=completeness_df["Metadata"],
+                            y=completeness_df["Completeness"],
+                            marker_color="lightgreen",
+                        )
+                    )
+
+                    fig_completeness.add_trace(
+                        go.Bar(
+                            name="Missing",
+                            x=completeness_df["Metadata"],
+                            y=completeness_df["Missing"],
+                            marker_color="lightcoral",
+                        )
+                    )
+
+                    fig_completeness.update_layout(
+                        barmode="stack",
+                        title="Metadata Completeness",
+                        yaxis_title="Percentage (%)",
+                        height=400,
+                    )
+
+                    st.plotly_chart(fig_completeness, use_container_width=True)
+                else:
+                    st.info("No metadata available")
+
+            with sum_tab3:
+                # Item info dataset quality
+                if item_quality_report:
+                    st.write(
+                        f"**Shape**: {item_quality_report['shape'][0]:,} rows × {item_quality_report['shape'][1]} columns"
+                    )
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.write("**Missing Values**")
+                        missing_item = item_quality_report["missing_values"]
+                        missing_item_display = missing_item[
+                            missing_item["Missing %"] > 0
+                        ]
+                        if not missing_item_display.empty:
+                            st.dataframe(missing_item_display, use_container_width=True)
+                        else:
+                            st.success("✅ No missing values")
+
+                    with col2:
+                        st.write("**Data Type Summary**")
+                        dtype_counts = (
+                            pd.Series(item_quality_report["data_types"])
+                            .astype(str)
+                            .value_counts()
+                        )
+                        dtype_counts_df = dtype_counts.reset_index()
+                        dtype_counts_df.columns = ["Type", "Count"]
+                        st.dataframe(dtype_counts_df, use_container_width=True)
+                else:
+                    st.info("No item info data available")
+
+            # ==================== Visualizations Section ====================
+            st.markdown("---")
+            st.subheader("📈 Visual Analysis")
+
+            viz_tab1, viz_tab2 = st.tabs(["Ratings Data", "Item Info Data"])
+
+            with viz_tab1:
+                fig_quality = plot_data_quality_summary(quality_report)
+                st.plotly_chart(fig_quality, use_container_width=True)
+
+            with viz_tab2:
+                if item_quality_report:
+                    fig_item_quality = plot_data_quality_summary(item_quality_report)
+                    st.plotly_chart(fig_item_quality, use_container_width=True)
+                else:
+                    st.info("No visualization available")
+
+            # ==================== Detailed Tables Section ====================
+            st.markdown("---")
+            st.subheader("📋 Detailed Reports")
+
+            detail_tab1, detail_tab2, detail_tab3, detail_tab4 = st.tabs(
+                ["Missing Values", "Outliers", "Data Types", "Metadata Details"]
+            )
+
+            with detail_tab1:
+                st.write("**Ratings Data - Missing Values**")
+                st.dataframe(quality_report["missing_values"], use_container_width=True)
+
+                if item_quality_report:
+                    st.markdown("---")
+                    st.write("**Item Info Data - Missing Values**")
+                    st.dataframe(
+                        item_quality_report["missing_values"], use_container_width=True
+                    )
+
+            with detail_tab2:
+                st.write("**Ratings Data - Outliers (IQR Method)**")
+                outlier_data = []
+                for col, info in quality_report["outliers"].items():
+                    outlier_data.append(
+                        {
+                            "Column": col,
+                            "Outlier Count": info["count"],
+                            "Outlier %": f"{info['pct']:.2f}%",
+                            "Lower Bound": f"{info['lower_bound']:.2f}",
+                            "Upper Bound": f"{info['upper_bound']:.2f}",
+                        }
+                    )
+                st.dataframe(pd.DataFrame(outlier_data), use_container_width=True)
+
+                if item_quality_report and item_quality_report["outliers"]:
+                    st.markdown("---")
+                    st.write("**Item Info Data - Outliers**")
+                    outlier_data_item = []
+                    for col, info in item_quality_report["outliers"].items():
+                        outlier_data_item.append(
+                            {
+                                "Column": col,
+                                "Outlier Count": info["count"],
+                                "Outlier %": f"{info['pct']:.2f}%",
+                                "Lower Bound": f"{info['lower_bound']:.2f}",
+                                "Upper Bound": f"{info['upper_bound']:.2f}",
+                            }
+                        )
+                    if outlier_data_item:
+                        st.dataframe(
+                            pd.DataFrame(outlier_data_item), use_container_width=True
+                        )
+
+            with detail_tab3:
+                st.write("**Ratings Data - Data Types**")
+                dtype_data = pd.DataFrame(
+                    {
+                        "Column": quality_report["data_types"].keys(),
+                        "Data Type": [
+                            str(v) for v in quality_report["data_types"].values()
+                        ],
+                        "Unique Values": [
+                            quality_report["unique_counts"][k]
+                            for k in quality_report["data_types"].keys()
+                        ],
+                    }
+                )
+                st.dataframe(dtype_data, use_container_width=True)
+
+                if item_quality_report:
+                    st.markdown("---")
+                    st.write("**Item Info Data - Data Types**")
+                    dtype_data_item = pd.DataFrame(
+                        {
+                            "Column": item_quality_report["data_types"].keys(),
+                            "Data Type": [
+                                str(v)
+                                for v in item_quality_report["data_types"].values()
+                            ],
+                            "Unique Values": [
+                                item_quality_report["unique_counts"][k]
+                                for k in item_quality_report["data_types"].keys()
+                            ],
+                        }
+                    )
+                    st.dataframe(dtype_data_item, use_container_width=True)
+
+            with detail_tab4:
+                if metadata_reports:
+                    for name, report in metadata_reports.items():
+                        with st.expander(f"📋 {name}", expanded=False):
+                            col1, col2, col3 = st.columns(3)
+
+                            col1.metric("Total Items", f"{report['total_items']:,}")
+                            col2.metric(
+                                "Missing",
+                                f"{report['missing_count']:,}",
+                                f"{report['missing_pct']:.2f}%",
+                            )
+                            col3.metric("Unique Values", f"{report['unique_values']:,}")
+
+                            # Type-specific metrics
+                            if "min_year" in report:
+                                st.write(
+                                    f"**Year Range**: {report['min_year']} - {report['max_year']}"
+                                )
+                                if report["future_years"] > 0:
+                                    st.warning(
+                                        f"⚠️ Future years found: {report['future_years']}"
+                                    )
+                                if report["ancient_years"] > 0:
+                                    st.warning(
+                                        f"⚠️ Ancient years (<1800): {report['ancient_years']}"
+                                    )
+
+                            if "items_with_multiple" in report:
+                                st.info(
+                                    f"📊 Items with multiple values: {report['items_with_multiple']:,} ({report['multi_value_pct']:.2f}%)"
+                                )
+                else:
+                    st.info("No metadata details available")
 
     # ==================== Tab 1: User Subset Analysis ====================
     with tab1:
@@ -172,6 +574,65 @@ def main():
                     "No interactions found for selected users in current time range."
                 )
             else:
+                # User Segmentation
+                st.subheader("👤 User Segmentation")
+
+                # Segment selected users
+                user_counts_subset = display_df.groupby("user")["item"].count()
+
+                # Calculate segment thresholds
+                q25 = user_counts_subset.quantile(0.25)
+                q75 = user_counts_subset.quantile(0.75)
+
+                segment_info = []
+                for user in selected_users:
+                    count = user_counts_subset.get(user, 0)
+                    if count >= q75:
+                        segment = "Heavy"
+                        color = "🔴"
+                    elif count >= q25:
+                        segment = "Medium"
+                        color = "🟡"
+                    else:
+                        segment = "Light"
+                        color = "🟢"
+
+                    segment_info.append(
+                        {
+                            "User": user,
+                            "Segment": f"{color} {segment}",
+                            "Rating Count": count,
+                        }
+                    )
+
+                segment_df_display = pd.DataFrame(segment_info)
+                st.dataframe(segment_df_display, use_container_width=True)
+
+                # Segment distribution
+                segment_counts = pd.Series(
+                    [s["Segment"] for s in segment_info]
+                ).value_counts()
+
+                col1, col2 = st.columns([1, 2])
+
+                with col1:
+                    st.write("**Segment Distribution**")
+                    for seg, count in segment_counts.items():
+                        st.metric(seg, count)
+
+                with col2:
+                    fig_seg = go.Figure(
+                        data=[
+                            go.Pie(
+                                labels=[s.split()[1] for s in segment_counts.index],
+                                values=segment_counts.values,
+                                marker=dict(colors=["#ff6b6b", "#ffd93d", "#6bcf7f"]),
+                            )
+                        ]
+                    )
+                    fig_seg.update_layout(title="Segment Distribution", height=300)
+                    st.plotly_chart(fig_seg, use_container_width=True)
+
                 # User interaction timeline
                 st.subheader("📈 User Interaction Timeline")
                 use_separate = st.checkbox(
@@ -431,6 +892,137 @@ def main():
             fig_rank.update_xaxes(type="category")
             st.plotly_chart(fig_rank, use_container_width=True)
 
+        st.markdown("---")
+        st.subheader("👥 User Segmentation Analysis")
+
+        if st.button("🔄 Analyze User Segments", key="analyze_segments"):
+            with st.spinner("Segmenting users..."):
+                # Get early stats if available
+                early_stats_for_segment = st.session_state.get("early_stats", None)
+
+                # Segment users
+                segment_df = segment_users(filtered_df, early_stats_for_segment)
+                st.session_state["segment_df"] = segment_df
+
+        if "segment_df" in st.session_state:
+            segment_df = st.session_state["segment_df"]
+
+            # Summary statistics
+            summary = analyze_user_segments(segment_df, filtered_df)
+
+            col1, col2 = st.columns([1, 1])
+
+            with col1:
+                st.write("**Segment Summary**")
+                st.dataframe(summary, use_container_width=True)
+
+            with col2:
+                fig_seg = plot_user_segmentation(segment_df)
+                st.plotly_chart(fig_seg, use_container_width=True)
+
+            # Detailed breakdown
+            st.write("**Segment Characteristics**")
+
+            tab_seg1, tab_seg2, tab_seg3 = st.tabs(
+                ["Heavy Users", "Medium Users", "Light Users"]
+            )
+
+            for tab, segment_name in zip(
+                [tab_seg1, tab_seg2, tab_seg3], ["Heavy", "Medium", "Light"]
+            ):
+                with tab:
+                    segment_users = segment_df[segment_df["segment"] == segment_name]
+
+                    col_a, col_b, col_c = st.columns(3)
+                    col_a.metric("Count", f"{len(segment_users):,}")
+                    col_b.metric(
+                        "Avg Ratings", f"{segment_users['rating_count'].mean():.1f}"
+                    )
+                    col_c.metric(
+                        "Median Ratings",
+                        f"{segment_users['rating_count'].median():.0f}",
+                    )
+
+                    # If bulk rater info available
+                    if "is_bulk_rater" in segment_users.columns:
+                        bulk_ratio = segment_users["is_bulk_rater"].mean()
+                        st.info(
+                            f"📊 **{bulk_ratio*100:.1f}%** of {segment_name} users are Bulk Raters"
+                        )
+
+                    # Top users in segment
+                    st.write(f"**Top 10 {segment_name} Users**")
+                    top_in_segment = segment_users.nlargest(10, "rating_count")
+                    st.dataframe(
+                        top_in_segment[["user", "rating_count"]],
+                        use_container_width=True,
+                    )
+
+        # 🆕 Temporal Patterns
+        st.markdown("---")
+        st.subheader("⏰ Temporal Activity Patterns")
+
+        if st.button("🔄 Analyze Temporal Patterns", key="analyze_temporal"):
+            with st.spinner("Analyzing temporal patterns..."):
+                patterns = analyze_temporal_patterns(filtered_df)
+                st.session_state["temporal_patterns"] = patterns
+
+        if "temporal_patterns" in st.session_state:
+            patterns = st.session_state["temporal_patterns"]
+
+            # Temporal trends
+            fig_temporal = plot_temporal_trends(patterns)
+            st.plotly_chart(fig_temporal, use_container_width=True)
+
+            # Heatmap
+            st.write("**Activity Heatmap**")
+            fig_heatmap = plot_temporal_heatmap(filtered_df)
+            st.plotly_chart(fig_heatmap, use_container_width=True)
+
+            # Key insights
+            st.write("**📊 Temporal Insights**")
+
+            # Peak hour
+            peak_hour = patterns["hourly"].idxmax()
+            st.info(
+                f"🕐 **Peak Hour**: {peak_hour}:00 with {patterns['hourly'].max():,} ratings"
+            )
+
+            # Peak day
+            day_labels = [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+                "Sunday",
+            ]
+            peak_day = patterns["daily"].idxmax()
+            st.info(
+                f"📅 **Peak Day**: {day_labels[peak_day]} with {patterns['daily'].max():,} ratings"
+            )
+
+            # Peak month
+            month_labels = [
+                "Jan",
+                "Feb",
+                "Mar",
+                "Apr",
+                "May",
+                "Jun",
+                "Jul",
+                "Aug",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dec",
+            ]
+            peak_month = patterns["monthly"].idxmax()
+            st.info(
+                f"📆 **Peak Month**: {month_labels[peak_month-1]} with {patterns['monthly'].max():,} ratings"
+            )
+
     # ==================== Tab 3: Item Subset Analysis ====================
     with tab3:
         st.header("🎬 Item Subset Analysis")
@@ -612,6 +1204,31 @@ def main():
         else:
             st.info("👆 Please select items to analyze using the controls above.")
 
+        if selected_items and not item_info_df.empty:
+            st.markdown("---")
+            st.subheader("🎭 Genre Analysis for Selected Items")
+
+            selected_item_info = item_info_df[item_info_df["item"].isin(selected_items)]
+
+            if not selected_item_info.empty and "genre" in selected_item_info.columns:
+                # Genre distribution for selected items
+                genre_df_subset = analyze_genre_distribution(
+                    filtered_df[filtered_df["item"].isin(selected_items)], item_info_df
+                )
+
+                if genre_df_subset is not None and not genre_df_subset.empty:
+                    col1, col2 = st.columns([1, 2])
+
+                    with col1:
+                        st.dataframe(genre_df_subset.head(10), use_container_width=True)
+
+                    with col2:
+                        fig_genre_subset = plot_genre_distribution(
+                            genre_df_subset, "Genre Distribution - Selected Items"
+                        )
+                        if fig_genre_subset:
+                            st.plotly_chart(fig_genre_subset, use_container_width=True)
+
     # ==================== Tab 4: All Items Analysis ====================
     with tab4:
         st.header("📊 All Items Analysis")
@@ -679,6 +1296,354 @@ def main():
         res_interactions = get_top_k_interactions(filtered_df, k_items, bottom_flag)
         st.write(f"**{order_items} {k_items} User-Item Interactions**")
         st.dataframe(res_interactions, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("🎬 Genre Combination Analysis")
+
+        if not item_info_df.empty:
+            combo_df = analyze_genre_combinations(item_info_df, filtered_df)
+
+            if combo_df is not None:
+                st.write("**Top Genre Combinations**")
+
+                # Display top combos
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.write("**By Number of Items**")
+                    st.dataframe(combo_df.head(20), use_container_width=True)
+
+                with col2:
+                    if "mean_review" in combo_df.columns:
+                        st.write("**By Average Reviews per Item**")
+                        top_by_review = combo_df.nlargest(20, "mean_review")
+                        st.dataframe(top_by_review, use_container_width=True)
+
+                # 🆕 Rare but Popular Combos
+                st.markdown("---")
+                st.subheader("💎 Rare but Popular Genre Combinations")
+                st.markdown(
+                    """
+                이 분석은 **희귀하지만 인기 있는 장르 조합**을 찾습니다.
+                - 아이템 수는 적지만 (희귀)
+                - 평균 리뷰 수가 높은 (인기) 조합
+                """
+                )
+
+                rare_popular = find_rare_but_popular_combos(combo_df, top_k=20)
+
+                if rare_popular is not None and not rare_popular.empty:
+                    col1, col2 = st.columns([1, 1])
+
+                    with col1:
+                        st.dataframe(
+                            rare_popular[
+                                [
+                                    "genre_combo",
+                                    "item_count",
+                                    "mean_review",
+                                    "review_count",
+                                ]
+                            ],
+                            use_container_width=True,
+                        )
+
+                    with col2:
+                        fig_rare = plot_rare_popular_combos(rare_popular)
+                        if fig_rare:
+                            st.plotly_chart(fig_rare, use_container_width=True)
+
+                    # Insights
+                    st.info(
+                        f"💡 Found **{len(rare_popular)}** rare but popular combinations"
+                    )
+
+        # 🆕 Item Cold Start Analysis
+        st.markdown("---")
+        st.subheader("❄️ Item Cold Start Analysis")
+
+        cold_start_items = find_cold_start_items(filtered_df, item_info_df)
+
+        if not cold_start_items.empty:
+            st.warning(
+                f"⚠️ Found **{len(cold_start_items):,} items** with metadata but NO ratings (Cold Start Items)"
+            )
+
+            cold_summary = analyze_cold_start_items(cold_start_items)
+
+            if cold_summary:
+                col1, col2, col3 = st.columns(3)
+
+                col1.metric(
+                    "Total Cold Start Items", f"{cold_summary['total_count']:,}"
+                )
+
+                if "year_range" in cold_summary:
+                    col2.metric("Year Range", cold_summary["year_range"])
+                    col3.metric("Average Year", cold_summary["avg_year"])
+
+                # Genre distribution of cold start items
+                if "top_genres" in cold_summary:
+                    st.write("**Top Genres in Cold Start Items**")
+                    genre_data = pd.DataFrame(
+                        list(cold_summary["top_genres"].items()),
+                        columns=["Genre", "Count"],
+                    )
+
+                    fig_cold_genre = px.bar(
+                        genre_data,
+                        x="Genre",
+                        y="Count",
+                        title="Genre Distribution - Cold Start Items",
+                    )
+                    st.plotly_chart(fig_cold_genre, use_container_width=True)
+
+            # Export cold start items
+            with st.expander("📋 View Cold Start Items"):
+                st.dataframe(cold_start_items.head(100), use_container_width=True)
+
+                csv_cold = cold_start_items.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Cold Start Items (CSV)",
+                    data=csv_cold,
+                    file_name="cold_start_items.csv",
+                    mime="text/csv",
+                )
+        else:
+            st.success(
+                "✅ No cold start items found - all items with metadata have been rated!"
+            )
+
+    # ==================== Tab 5: Advanced EDA ====================
+    with tab5:
+        st.header("📈 Advanced Exploratory Data Analysis")
+        st.markdown("다양한 EDA들")
+
+        # Section: 분포 요약
+        st.subheader("📊 분포 요약")
+
+        user_counts = filtered_df.groupby("user")["item"].count()
+        item_counts = filtered_df.groupby("item")["user"].count()
+
+        st.write("**User Interactions Distribution**")
+        user_summary = dist_summary(user_counts, "User Interactions")
+        st.dataframe(user_summary, use_container_width=True)
+
+        st.write("**Item Popularity Distribution**")
+        item_summary = dist_summary(item_counts, "Item Ratings")
+        st.dataframe(item_summary, use_container_width=True)
+
+        # Visualization
+        fig_dist = plot_distribution_summary(filtered_df)
+        st.plotly_chart(fig_dist, use_container_width=True)
+
+        # Section: Concentration Analysis
+        st.markdown("---")
+        st.subheader("🎯 Concentration Analysis")
+        st.markdown(
+            """
+        **상위 X%의 유저/아이템이 전체 인터랙션의 몇 %를 차지하는지**에 대한 분석.
+        - **가파른 곡선** = 소수의 엔티티가 대부분의 활동을 차지 (높은 집중도)
+        - **완만한 곡선** = 활동이 고르게 분산됨 (낮은 집중도)
+        """
+        )
+
+        # Calculate metrics
+        metrics = calculate_concentration_metrics(filtered_df)
+
+        # Display key metrics
+        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+
+        metric_col1.metric(
+            "Top 1% Users Share",
+            f"{metrics['top_1_pct']['user_share']*100:.1f}%",
+            help="상위 1% 유저가 차지하는 전체 인터랙션 비율",
+        )
+
+        metric_col2.metric(
+            "Top 1% Items Share",
+            f"{metrics['top_1_pct']['item_share']*100:.1f}%",
+            help="상위 1% 아이템이 차지하는 전체 인터랙션 비율",
+        )
+
+        metric_col3.metric(
+            "User Long-tail (P99/P50)",
+            f"{metrics['tail_ratios']['user_p99_p50']:.1f}x",
+            help="상위 1% 유저가 중간 유저보다 몇 배 더 활동적인지",
+        )
+
+        metric_col4.metric(
+            "Item Long-tail (P99/P50)",
+            f"{metrics['tail_ratios']['item_p99_p50']:.1f}x",
+            help="상위 1% 아이템이 중간 아이템보다 몇 배 더 인기있는지",
+        )
+
+        # Plot concentration curve
+        fig_conc = plot_concentration_analysis(filtered_df)
+        st.plotly_chart(fig_conc, use_container_width=True)
+
+        # Heavy share table
+        st.write("**Detailed Concentration Breakdown**")
+        heavy_data = []
+        for pct in [0.1, 0.5, 1, 5, 10, 20]:
+            user_hs = heavy_share(user_counts, pct)
+            item_hs = heavy_share(item_counts, pct)
+            heavy_data.append(
+                {
+                    "Top %": f"{pct}%",
+                    "User Count": f"{user_hs['k']:,}",
+                    "User Share": f"{user_hs['share']*100:.1f}%",
+                    "Item Count": f"{item_hs['k']:,}",
+                    "Item Share": f"{item_hs['share']*100:.1f}%",
+                }
+            )
+
+        heavy_df = pd.DataFrame(heavy_data)
+        st.dataframe(heavy_df, use_container_width=True)
+
+        # Section: Cold Start Analysis
+        st.markdown("---")
+        st.subheader("❄️ Cold Start Analysis")
+        st.markdown(
+            """
+        **Cold Users**: 인터랙션이 매우 적은 유저 (추천이 어려움)
+        - ≤ 3개: 극도로 적음
+        - ≤ 10개: 매우 적음
+        - ≤ 50개: 적음
+        - ≤ 100개: 보통
+        """
+        )
+
+        cold_col1, cold_col2, cold_col3, cold_col4 = st.columns(4)
+
+        cold_col1.metric(
+            "≤ 3 Interactions",
+            f"{metrics['cold_users']['le_3']*100:.1f}%",
+            help="3개 이하 인터랙션 유저 비율",
+        )
+
+        cold_col2.metric(
+            "≤ 10 Interactions",
+            f"{metrics['cold_users']['le_10']*100:.1f}%",
+            help="10개 이하 인터랙션 유저 비율",
+        )
+
+        cold_col3.metric(
+            "≤ 50 Interactions",
+            f"{metrics['cold_users']['le_50']*100:.1f}%",
+            help="50개 이하 인터랙션 유저 비율",
+        )
+
+        cold_col4.metric(
+            "≤ 100 Interactions",
+            f"{metrics['cold_users']['le_100']*100:.1f}%",
+            help="100개 이하 인터랙션 유저 비율",
+        )
+
+        # Cold user distribution
+        cold_thresholds = [3, 10, 50, 100, 300, 500]
+        cold_ratios = [cold_user_ratio(user_counts, k) * 100 for k in cold_thresholds]
+
+        fig_cold = go.Figure()
+        fig_cold.add_trace(
+            go.Bar(
+                x=[f"≤ {k}" for k in cold_thresholds],
+                y=cold_ratios,
+                marker_color="lightblue",
+            )
+        )
+        fig_cold.update_layout(
+            title="Cold User Distribution by Threshold",
+            xaxis_title="Interaction Threshold",
+            yaxis_title="% of Users",
+            height=400,
+        )
+        st.plotly_chart(fig_cold, use_container_width=True)
+
+        # Section 4: Genre Analysis
+        st.markdown("---")
+        st.subheader("🎭 Genre Analysis")
+
+        if not item_info_df.empty:
+            # Overall genre distribution
+            st.write("**Overall Genre Distribution**")
+            genre_df = analyze_genre_distribution(filtered_df, item_info_df)
+
+            if genre_df is not None and not genre_df.empty:
+                col_genre1, col_genre2 = st.columns([1, 2])
+
+                with col_genre1:
+                    st.dataframe(genre_df.head(20), use_container_width=True)
+
+                with col_genre2:
+                    fig_genre = plot_genre_distribution(
+                        genre_df, "All Ratings - Genre Distribution"
+                    )
+                    if fig_genre:
+                        st.plotly_chart(fig_genre, use_container_width=True)
+
+                # Top N popular items genre analysis
+                st.markdown("---")
+                st.write("**Genre Distribution in Popular Items**")
+
+                top_n = st.slider(
+                    "Top N Popular Items", 100, 5000, 500, 100, key="genre_top_n"
+                )
+
+                genre_top_df = analyze_genre_distribution(
+                    filtered_df, item_info_df, top_n=top_n
+                )
+
+                if genre_top_df is not None and not genre_top_df.empty:
+                    fig_genre_top = plot_genre_distribution(
+                        genre_top_df, f"Top {top_n} Popular Items - Genre Distribution"
+                    )
+                    if fig_genre_top:
+                        st.plotly_chart(fig_genre_top, use_container_width=True)
+            else:
+                st.info("Genre information not available in item_info data.")
+        else:
+            st.info("Load item information to see genre analysis.")
+
+        # Section 5: Data Insights Summary
+        st.markdown("---")
+        st.subheader("💡 Key Insights")
+
+        insights = []
+
+        # Long-tail insight
+        user_tail = metrics["tail_ratios"]["user_p99_p50"]
+        item_tail = metrics["tail_ratios"]["item_p99_p50"]
+
+        if item_tail > user_tail:
+            insights.append(
+                f"📌 **Long-tail 구조**: 아이템 분포가 유저 분포보다 **{item_tail/user_tail:.1f}배 더 long-tail**입니다. 소수의 인기 아이템에 인터랙션이 집중되어 있습니다."
+            )
+        else:
+            insights.append(
+                f"📌 **활동 집중도**: 유저 활동이 아이템 인기도보다 **{user_tail/item_tail:.1f}배 더 집중**되어 있습니다. 소수의 heavy user가 대부분의 활동을 담당합니다."
+            )
+
+        # Cold user insight
+        if metrics["cold_users"]["le_3"] < 0.1:
+            insights.append(
+                f"📌 **Cold Start 문제 적음**: 인터랙션 3개 이하 유저가 **{metrics['cold_users']['le_3']*100:.1f}%**로 매우 적습니다. 대부분 유저가 충분한 데이터를 가지고 있습니다."
+            )
+        elif metrics["cold_users"]["le_3"] > 0.3:
+            insights.append(
+                f"📌 **Cold Start 문제 심각**: 인터랙션 3개 이하 유저가 **{metrics['cold_users']['le_3']*100:.1f}%**로 높습니다. Cold start 전략이 필수적입니다."
+            )
+
+        # Concentration insight
+        top1_user = metrics["top_1_pct"]["user_share"]
+        top1_item = metrics["top_1_pct"]["item_share"]
+
+        insights.append(
+            f"📌 **집중도 분석**: 상위 1% 유저가 **{top1_user*100:.1f}%**, 상위 1% 아이템이 **{top1_item*100:.1f}%**의 인터랙션을 차지합니다."
+        )
+
+        for insight in insights:
+            st.markdown(insight)
 
 
 if __name__ == "__main__":
