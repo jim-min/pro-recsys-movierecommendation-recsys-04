@@ -1,0 +1,57 @@
+# BERT4Rec Improved Configuration
+# 논문 기준 + 실험적 개선사항
+
+defaults:
+  - common/default_setup
+
+# 모델 이름 (Hydra 로그 디렉토리 구조)
+model_name: bert4rec
+
+# 데이터 설정
+data:
+  data_dir: "~/data/train/"
+  data_file: "train_ratings.csv"
+  batch_size: 256              # 증가 (원래: 128)
+  min_interactions: 3
+  seed: 42
+  num_workers: 4
+
+# 모델 설정 - 논문 기준으로 증가
+model:
+  hidden_units: 256            # 증가 (원래: 64, 논문: 256)
+  num_heads: 4                 # 유지
+  num_layers: 2                # 논문: 2 (원래: 3은 과적합 위험)
+  max_len: 200                 # 증가 (원래: 50)
+  dropout_rate: 0.2            # 감소 (원래: 0.3)
+  mask_prob: 0.2               # 증가 (원래: 0.15, 논문: 0.15-0.2)
+  share_embeddings: true
+
+# 학습 설정
+training:
+  num_epochs: 200              # 증가 (원래: 100)
+  lr: 0.001                    # 논문 권장값 (원래: 0.0015)
+  weight_decay: 0.0            # 유지
+  accelerator: "auto"
+  devices: "auto"
+  log_every_n_steps: 50
+  val_check_interval: 1.0
+  gradient_clip_val: 5.0       # 추가 (gradient clipping)
+  deterministic: false
+  precision: "32-true"
+
+  # Early stopping
+  early_stopping: true
+  early_stopping_patience: 20  # 증가 (원래: 10)
+  monitor_metric: "val_ndcg@10"
+
+# Checkpoint 설정
+checkpoint:
+  save_top_k: 1
+  monitor: "val_ndcg@10"
+  mode: "max"
+
+# 추론 설정
+inference:
+  checkpoint_path: null
+  topk: 10
+  batch_size: 512              # 증가

@@ -13,7 +13,7 @@ data:
   valid_ratio: 0.1
   min_interactions: 5
   data_file: "train_ratings.csv"
-  split_strategy: "temporal_user"  # "random", "leave_one_out", "temporal_user", "temporal_global"
+  split_strategy: "leave_one_out"  # "random", "leave_one_out", "temporal_user", "temporal_global"
   temporal_split_ratio: 0.9  # temporal split용 (0.8 = 80% train, 20% valid)
 
 # 모델 설정
