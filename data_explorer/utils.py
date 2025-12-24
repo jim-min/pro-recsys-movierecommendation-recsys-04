@@ -136,27 +136,10 @@ def get_top_k_interactions(
     return res.to_frame("count").reset_index()
 
 
+# 계정 생성 초기에 짧은 시간 내 몰아서 평가한 패턴, 즉 bulk user를 분석하는 함수
 def analyze_early_account_activity(
     df, time_window_hours=0.5, min_ratings=5, show_progress=False
 ):
-    """
-    Analyze early account activity patterns to identify initial bulk ratings.
-    계정 생성 초기에 짧은 시간 내 몰아서 평가한 패턴을 분석합니다.
-
-    Parameters:
-    -----------
-    df : DataFrame
-        Ratings dataframe with columns: user, item, datetime
-    time_window_hours : float
-        Time window (in hours) from first rating to consider as "early activity"
-        Default 0.5 (30분)
-    min_ratings : int
-        Minimum number of ratings in time window to flag as bulk rating
-
-    Returns:
-    --------
-    DataFrame with early activity statistics per user
-    """
     results = []
     all_users = df["user"].unique()
     total_users = len(all_users)

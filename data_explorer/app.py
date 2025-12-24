@@ -269,10 +269,10 @@ def main():
 
         time_window_minutes = col1.slider(
             "Time Window (minutes)",
-            min_value=5,
-            max_value=1440,
+            min_value=1,
+            max_value=120,
             value=30,
-            step=5,
+            step=1,
             key="tab2_time_window",
             help="첫 평가 이후 고려할 시간 범위 (분 단위)",
         )
