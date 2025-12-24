@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import os
 import pandas as pd
@@ -47,13 +46,35 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="RecSys Data Explorer", layout="wide")
 
 
+# 캐싱
+@st.cache_data(show_spinner=True)
+def load_all_data(data_dir):
+    ratings_df = load_ratings(data_dir)
+    item_info_df = load_item_info(data_dir)
+    item_attrs = load_item_attributes(data_dir)
+    return ratings_df, item_info_df, item_attrs
+
+
+@st.cache_data
+def filter_by_time(df, start, end):
+    return df[(df["datetime"] >= start) & (df["datetime"] <= end)]
+
+
+@st.cache_data
+def get_all_users_items(df):
+    return (
+        sorted(df["user"].unique()),
+        sorted(df["item"].unique()),
+    )
+
+
 def main():
     st.title("🎬 RecSys Data Explorer")
 
     # --- Sidebar ---
     st.sidebar.header("Configuration")
 
-    # 1. Directory Input
+    # Directory Input
     default_dir = os.path.join(os.getcwd(), "data", "raw", "train")
     data_dir = st.sidebar.text_input("Data Directory", value=default_dir)
 
@@ -64,25 +85,21 @@ def main():
         st.info("Please verify the data directory and click 'Load Data'.")
         return
 
-    # Load Data
-    with st.spinner("Loading data..."):
-        ratings_df = load_ratings(data_dir)
-        item_info_df = load_item_info(data_dir)
-        item_attrs = load_item_attributes(data_dir)
+    # Load Data (CACHED)
+    ratings_df, item_info_df, item_attrs = load_all_data(data_dir)
 
     if ratings_df is None:
         return
 
-    # Display summary metrics
-    m_col1, m_col2, m_col3 = st.columns(3)
-    m_col1.metric("Total Users", f"{ratings_df['user'].nunique():,}")
-    m_col2.metric("Total Movies", f"{ratings_df['item'].nunique():,}")
-    m_col3.metric("Total Interactions", f"{len(ratings_df):,}")
+    # ---------------- Summary Metrics ----------------
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Users", f"{ratings_df['user'].nunique():,}")
+    c2.metric("Total Movies", f"{ratings_df['item'].nunique():,}")
+    c3.metric("Total Interactions", f"{len(ratings_df):,}")
 
-    # 2. Global Filters (Sidebar)
+    # ---------------- Global Filters ----------------
     st.sidebar.subheader("Global Filters")
 
-    # Time Range
     min_time = ratings_df["datetime"].min()
     max_time = ratings_df["datetime"].max()
 
@@ -93,8 +110,11 @@ def main():
         value=(min_time.to_pydatetime(), max_time.to_pydatetime()),
     )
 
-    # --- Main Content ---
+    # ---------------- Cached filtering ----------------
+    filtered_df = filter_by_time(ratings_df, time_range[0], time_range[1])
+    all_users, all_items = get_all_users_items(filtered_df)
 
+    # ---------------- Tabs ----------------
     tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs(
         [
             "🔍 Data Quality",
@@ -1417,67 +1437,51 @@ def main():
         st.header("📈 Advanced Exploratory Data Analysis")
         st.markdown("대규모 연산이 포함된 심화 EDA 분석")
 
-        # -------------------- State Init --------------------
         if "advanced_eda_results" not in st.session_state:
             st.session_state["advanced_eda_results"] = None
 
-        # -------------------- Run Button --------------------
         st.info(
             "⚠️ Advanced EDA는 계산량이 많습니다.\n\n"
             "아래 버튼을 눌렀을 때만 분석이 시작됩니다."
         )
 
-        run_clicked = st.button("🚀 Run Advanced EDA", type="primary")
-
-        # -------------------- Analysis Trigger --------------------
-        if run_clicked:
+        if st.button("🚀 Run Advanced EDA", type="primary"):
             progress = st.progress(0)
             status = st.empty()
 
-            # ==================== 1. Distribution Summary ====================
-            status.text("📊 [1/6] Computing distributions...")
+            status.text("📊 Computing distributions...")
             user_counts = filtered_df.groupby("user")["item"].count()
             item_counts = filtered_df.groupby("item")["user"].count()
-            progress.progress(0.15)
+            progress.progress(0.2)
 
             user_summary = dist_summary(user_counts, "User Interactions")
             item_summary = dist_summary(item_counts, "Item Ratings")
 
-            # ==================== 2. Concentration Metrics ====================
-            status.text("🎯 [2/6] Calculating concentration metrics...")
+            status.text("🎯 Calculating concentration metrics...")
             metrics = calculate_concentration_metrics(filtered_df)
-            progress.progress(0.30)
+            progress.progress(0.4)
 
-            # ==================== 3. Concentration Curve ====================
-            status.text("📈 [3/6] Plotting concentration curves...")
+            status.text("📈 Plotting curves...")
             fig_dist = plot_distribution_summary(filtered_df)
             fig_conc = plot_concentration_analysis(filtered_df)
-            progress.progress(0.45)
+            progress.progress(0.6)
 
-            # ==================== 4. Cold Start ====================
-            status.text("❄️ [4/6] Analyzing cold-start users...")
+            status.text("❄️ Cold-start analysis...")
             cold_thresholds = [3, 10, 50, 100, 300, 500]
             cold_ratios = [
                 cold_user_ratio(user_counts, k) * 100 for k in cold_thresholds
             ]
-            progress.progress(0.60)
+            progress.progress(0.8)
 
-            # ==================== 5. Genre Analysis ====================
-            status.text("🎭 [5/6] Analyzing genres...")
-            if not item_info_df.empty:
-                genre_df = analyze_genre_distribution(filtered_df, item_info_df)
-            else:
-                genre_df = None
-            progress.progress(0.80)
-
-            # ==================== 6. Insights ====================
-            status.text("💡 [6/6] Finalizing insights...")
+            status.text("🎭 Genre analysis...")
+            genre_df = (
+                analyze_genre_distribution(filtered_df, item_info_df)
+                if not item_info_df.empty
+                else None
+            )
             progress.progress(1.0)
 
-            # -------------------- Save Results --------------------
             st.session_state["advanced_eda_results"] = {
-                "user_counts": user_counts,
-                "item_counts": item_counts,
                 "user_summary": user_summary,
                 "item_summary": item_summary,
                 "metrics": metrics,
@@ -1490,87 +1494,32 @@ def main():
 
             status.text("✅ Advanced EDA complete!")
 
-        # -------------------- Render Results --------------------
         if st.session_state["advanced_eda_results"] is None:
             st.info("👆 Run Advanced EDA 버튼을 눌러 분석을 시작하세요.")
-            st.stop()
+            return
 
         res = st.session_state["advanced_eda_results"]
 
-        # ==================== Render: Distribution ====================
-        st.subheader("📊 분포 요약")
-
-        st.write("**User Interactions Distribution**")
+        st.subheader("📊 Distribution Summary")
         st.dataframe(res["user_summary"], use_container_width=True)
-
-        st.write("**Item Popularity Distribution**")
         st.dataframe(res["item_summary"], use_container_width=True)
-
         st.plotly_chart(res["fig_dist"], use_container_width=True)
 
-        # ==================== Render: Concentration ====================
         st.markdown("---")
         st.subheader("🎯 Concentration Analysis")
-
-        m = res["metrics"]
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Top 1% Users Share", f"{m['top_1_pct']['user_share']*100:.1f}%")
-        col2.metric("Top 1% Items Share", f"{m['top_1_pct']['item_share']*100:.1f}%")
-        col3.metric("User P99/P50", f"{m['tail_ratios']['user_p99_p50']:.1f}x")
-        col4.metric("Item P99/P50", f"{m['tail_ratios']['item_p99_p50']:.1f}x")
-
         st.plotly_chart(res["fig_conc"], use_container_width=True)
 
-        # ==================== Render: Cold Start ====================
         st.markdown("---")
         st.subheader("❄️ Cold Start Analysis")
-
         fig_cold = go.Figure(
-            go.Bar(
-                x=[f"≤ {k}" for k in res["cold_thresholds"]],
-                y=res["cold_ratios"],
-                marker_color="lightblue",
-            )
-        )
-        fig_cold.update_layout(
-            yaxis_title="% of Users",
-            height=400,
+            go.Bar(x=[f"≤ {k}" for k in res["cold_thresholds"]], y=res["cold_ratios"])
         )
         st.plotly_chart(fig_cold, use_container_width=True)
 
-        # ==================== Render: Genre ====================
         st.markdown("---")
         st.subheader("🎭 Genre Analysis")
-
         if res["genre_df"] is not None and not res["genre_df"].empty:
-            col1, col2 = st.columns([1, 2])
-            with col1:
-                st.dataframe(res["genre_df"].head(20), use_container_width=True)
-            with col2:
-                fig_genre = plot_genre_distribution(
-                    res["genre_df"], "All Ratings - Genre Distribution"
-                )
-                if fig_genre:
-                    st.plotly_chart(fig_genre, use_container_width=True)
-        else:
-            st.info("Genre metadata not available.")
-
-        # ==================== Render: Insights ====================
-        st.markdown("---")
-        st.subheader("💡 Key Insights")
-
-        insights = []
-        if m["tail_ratios"]["item_p99_p50"] > m["tail_ratios"]["user_p99_p50"]:
-            insights.append("• 아이템 분포가 유저 분포보다 더 long-tail 구조입니다.")
-        else:
-            insights.append("• 유저 활동이 아이템 인기도보다 더 집중되어 있습니다.")
-
-        insights.append(
-            f"• 상위 1% 유저가 전체 인터랙션의 {m['top_1_pct']['user_share']*100:.1f}%를 차지합니다."
-        )
-
-        for ins in insights:
-            st.markdown(ins)
+            st.dataframe(res["genre_df"].head(20), use_container_width=True)
 
 
 if __name__ == "__main__":
