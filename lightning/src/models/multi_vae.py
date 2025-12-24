@@ -92,8 +92,10 @@ class MultiVAE(L.LightningModule):
             mu: 잠재 분포의 평균 (batch_size, latent_dim),
             logvar: 잠재 분포의 로그 분산 (batch_size, latent_dim)
         """
-        x = F.normalize(x, p=2, dim=1)
+        # Dropout 먼저 적용 (정규화 전)
         x = F.dropout(x, self.dropout, training=self.training)
+        # L2 정규화 (dropout 후)
+        x = F.normalize(x, p=2, dim=1)
 
         h = self.encoder(x)
         mu = self.mu(h)

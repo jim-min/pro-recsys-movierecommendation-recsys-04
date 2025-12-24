@@ -6,31 +6,33 @@
 set -e  # Exit on error
 
 MODE=${1:-both}  # Default: both
+CFG_FILE=${1:-bert4rec_v2}
 
 echo "========================================="
 echo "BERT4Rec Runner"
 echo "========================================="
 echo "Mode: $MODE"
+echo "Config: $CFG_FILE"
 echo ""
 
 case $MODE in
     train)
         echo "Starting training..."
-        python train_bert4rec.py -cn bert4rec_improved
+        python train_bert4rec.py -cn $CFG_FILE
         ;;
 
     predict)
         echo "Starting inference..."
-        python predict_bert4rec.py -cn bert4rec_improved
+        python predict_bert4rec.py -cn $CFG_FILE
         ;;
 
     both)
         echo "Starting training..."
-        python train_bert4rec.py -cn bert4rec_improved
+        python train_bert4rec.py -cn $CFG_FILE
 
         echo ""
         echo "Training completed. Starting inference..."
-        python predict_bert4rec.py -cn bert4rec_improved
+        python predict_bert4rec.py -cn $CFG_FILE
         ;;
 
     *)

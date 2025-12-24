@@ -50,9 +50,9 @@ def main(cfg: DictConfig):
         batch_size=cfg.data.batch_size,
         max_len=cfg.model.max_len,
         mask_prob=cfg.model.mask_prob,
-        min_interactions=cfg.data.get("min_interactions", 3),
+        min_interactions=cfg.data.min_interactions,
         seed=cfg.data.seed,
-        num_workers=cfg.data.get("num_workers", 4),
+        num_workers=cfg.data.num_workers,
     )
 
     # Setup data to get num_items
@@ -71,8 +71,8 @@ def main(cfg: DictConfig):
         dropout_rate=cfg.model.dropout_rate,
         mask_prob=cfg.model.mask_prob,
         lr=cfg.training.lr,
-        weight_decay=cfg.training.get("weight_decay", 0.0),
-        share_embeddings=cfg.model.get("share_embeddings", True),
+        weight_decay=cfg.training.weight_decay,
+        share_embeddings=cfg.model.share_embeddings,
     )
 
     # Get checkpoint and TensorBoard directories
@@ -101,7 +101,7 @@ def main(cfg: DictConfig):
     callbacks.append(checkpoint_callback)
 
     # EarlyStopping: Stop training if validation metric doesn't improve
-    if cfg.training.get("early_stopping", False):
+    if cfg.training.early_stopping:
         early_stopping = EarlyStopping(
             monitor=cfg.checkpoint.monitor,
             patience=cfg.training.early_stopping_patience,
