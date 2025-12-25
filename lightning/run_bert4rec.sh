@@ -1,12 +1,16 @@
 #!/bin/bash
 
 # BERT4Rec Training and Inference Script
-# Usage: ./run_bert4rec.sh [train|predict|both]
+# Usage: ./run_bert4rec.sh [train|predict|both] [config_file]
+# Examples:
+#   ./run_bert4rec.sh train bert4rec_v2
+#   ./run_bert4rec.sh predict
+#   ./run_bert4rec.sh both
 
 set -e  # Exit on error
 
 MODE=${1:-both}  # Default: both
-CFG_FILE=${1:-bert4rec_v2}
+CFG_FILE=${2:-bert4rec_v2}  # Default: bert4rec_v2
 
 echo "========================================="
 echo "BERT4Rec Runner"
@@ -37,7 +41,10 @@ case $MODE in
 
     *)
         echo "Invalid mode: $MODE"
-        echo "Usage: ./run_bert4rec.sh [train|predict|both]"
+        echo "Usage: ./run_bert4rec.sh [train|predict|both] [config_file]"
+        echo "Examples:"
+        echo "  ./run_bert4rec.sh train bert4rec_v2"
+        echo "  ./run_bert4rec.sh predict"
         exit 1
         ;;
 esac

@@ -10,7 +10,7 @@ model_name: multi-vae
 # 데이터 설정
 data:
   data_dir: "~/data/train/"
-  data_file: "train_ratings_del_300sec.csv"
+  data_file: "train_ratings.csv"
   batch_size: 128                    # sparse data에서 작은 배치 선호
   valid_ratio: 0.1
   min_interactions: 5
@@ -21,13 +21,13 @@ data:
 # 모델 설정
 model:
   hidden_dims: [600, 200]            # Encoder: items→600→200, Decoder: 200→600→items
-  dropout: 0.5                       # 적절한 정규화
+  dropout: 0.5                       # 
 
 # 학습 설정
 training:
   max_epochs: 500
   lr: 1e-3                           # 0.001
-  weight_decay: 0.0                  # L2 regularization (VAE는 KL로 이미 정규화)
+  weight_decay: 0.0                 # 
   kl_max_weight: 0.2                 # KL divergence weight (MultiVAE 논문 기준)
   kl_anneal_steps: 20000             # KL annealing steps (천천히)
 

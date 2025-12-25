@@ -17,7 +17,9 @@ class BERT4RecDataset(Dataset):
     Applies BERT-style masking to sequences during training
     """
 
-    def __init__(self, user_sequences, num_items, max_len, mask_prob, mask_token, pad_token):
+    def __init__(
+        self, user_sequences, num_items, max_len, mask_prob, mask_token, pad_token
+    ):
         """
         Args:
             user_sequences: Dict[user_id, List[item_id]] - User interaction sequences
@@ -53,8 +55,8 @@ class BERT4RecDataset(Dataset):
         tokens, labels = self._mask_sequence(seq)
 
         # Truncate or pad
-        tokens = tokens[-self.max_len:]
-        labels = labels[-self.max_len:]
+        tokens = tokens[-self.max_len :]
+        labels = labels[-self.max_len :]
 
         # Pad if necessary
         pad_len = self.max_len - len(tokens)
@@ -112,7 +114,9 @@ class BERT4RecValidationDataset(Dataset):
     - Ground truth item (next item to predict)
     """
 
-    def __init__(self, user_sequences, user_targets, num_items, max_len, mask_token, pad_token):
+    def __init__(
+        self, user_sequences, user_targets, num_items, max_len, mask_token, pad_token
+    ):
         """
         Args:
             user_sequences: Dict[user_id, List[item_id]] - User training sequences
@@ -146,7 +150,7 @@ class BERT4RecValidationDataset(Dataset):
         target = self.user_targets[user]
 
         # Add [MASK] token at the end
-        tokens = (list(seq) + [self.mask_token])[-self.max_len:]
+        tokens = (list(seq) + [self.mask_token])[-self.max_len :]
 
         # Pad if necessary
         pad_len = self.max_len - len(tokens)
@@ -156,7 +160,11 @@ class BERT4RecValidationDataset(Dataset):
         # Dummy labels (all zeros, not used in validation)
         labels = [self.pad_token] * self.max_len
 
-        return torch.LongTensor(tokens), torch.LongTensor(labels), torch.LongTensor([target])
+        return (
+            torch.LongTensor(tokens),
+            torch.LongTensor(labels),
+            torch.LongTensor([target]),
+        )
 
 
 class BERT4RecDataModule(L.LightningDataModule):
@@ -213,6 +221,12 @@ class BERT4RecDataModule(L.LightningDataModule):
         self.idx2item = None
         self.idx2user = None
 
+        # Item release years (indexed) - item_years: Dict[item_idx, year]
+        self.item_years = {}
+
+        # User's last click years - user_last_click_years: Dict[user_idx, year]
+        self.user_last_click_years = {}
+
     def prepare_data(self):
         """
         Download or prepare data (called only on 1 GPU/TPU)
@@ -237,12 +251,12 @@ class BERT4RecDataModule(L.LightningDataModule):
         log.info(f"Data loaded. Shape: {df.shape}")
 
         # Check required columns
-        if 'user' not in df.columns or 'item' not in df.columns:
+        if "user" not in df.columns or "item" not in df.columns:
             raise ValueError("Data must have 'user' and 'item' columns")
 
         # Get unique items and users
-        item_ids = df['item'].unique()
-        user_ids = df['user'].unique()
+        item_ids = df["item"].unique()
+        user_ids = df["user"].unique()
 
         # Create mappings (item: 1~num_items, user: 0~num_users-1)
         self.item2idx = pd.Series(data=np.arange(len(item_ids)) + 1, index=item_ids)
@@ -259,27 +273,30 @@ class BERT4RecDataModule(L.LightningDataModule):
         log.info(f"num_users: {self.num_users}, num_items: {self.num_items}")
 
         # Re-index dataframe
-        df['item_idx'] = df['item'].map(self.item2idx)
-        df['user_idx'] = df['user'].map(self.user2idx)
+        df["item_idx"] = df["item"].map(self.item2idx)
+        df["user_idx"] = df["user"].map(self.user2idx)
 
         # Sort by user and time (if available)
-        if 'time' in df.columns:
-            df = df.sort_values(['user_idx', 'time'])
+        if "time" in df.columns:
+            df = df.sort_values(["user_idx", "time"])
         else:
-            df = df.sort_values(['user_idx'])
+            df = df.sort_values(["user_idx"])
 
         # Group by user
         user_sequences = defaultdict(list)
-        for user_idx, item_idx in zip(df['user_idx'], df['item_idx']):
+        for user_idx, item_idx in zip(df["user_idx"], df["item_idx"]):
             user_sequences[user_idx].append(item_idx)
 
         # Filter users with minimum interactions
         user_sequences = {
-            u: seq for u, seq in user_sequences.items()
+            u: seq
+            for u, seq in user_sequences.items()
             if len(seq) >= self.min_interactions
         }
 
-        log.info(f"Users after filtering (min_interactions={self.min_interactions}): {len(user_sequences)}")
+        log.info(
+            f"Users after filtering (min_interactions={self.min_interactions}): {len(user_sequences)}"
+        )
 
         # Split: last item for validation, rest for training
         self.user_train = {}
@@ -294,6 +311,86 @@ class BERT4RecDataModule(L.LightningDataModule):
 
         # Update num_users to filtered count
         self.num_users = len(self.user_train)
+
+        # Load item metadata (pass df to avoid re-reading)
+        log.info("Setting up Item meta-data ...")
+        self._load_item_metadata(df)
+        log.info("Item meta-data setup complete")
+
+    def _load_item_metadata(self, df):
+        """
+        Item 메타데이터 로드 (영화 개봉년도)
+
+        Args:
+            df: Already loaded DataFrame with 'user', 'item', 'time' columns
+
+        Loads item release years and calculates user's last click years
+        Sets:
+            - self.item_years: Dict[item_idx, year]
+            - self.user_last_click_years: Dict[user_idx, year]
+        """
+        # Item release years (indexed) - item_years: Dict[item_idx, year]
+        self.item_years = {}
+
+        # User's last click years - user_last_click_years: Dict[user_idx, year]
+        self.user_last_click_years = {}
+
+        years_path = os.path.join(self.data_dir, "years.tsv")
+
+        # Check if years.tsv exists
+        if not os.path.exists(years_path):
+            log.warning(
+                f"years.tsv not found at {years_path}. Skipping metadata loading."
+            )
+            return
+
+        try:
+            # Load item release years
+            years_df = pd.read_csv(years_path, sep="\t")
+            log.info(f"Loaded {len(years_df)} items with release year info")
+
+            # Create item_years mapping (original_item_id -> year)
+            item_year_map = dict(zip(years_df["item"], years_df["year"]))
+
+            # Convert to indexed mapping (item_idx -> year)
+            for item_id, year in item_year_map.items():
+                if item_id in self.item2idx.index:
+                    item_idx = self.item2idx[item_id]
+                    self.item_years[item_idx] = year
+
+            log.info(f"Mapped {len(self.item_years)} items to release years")
+
+            # Calculate user's last click year from interaction data (use already loaded df)
+            if "time" in df.columns:
+                # Convert timestamp to year
+                df_copy = df.copy()
+                df_copy["click_year"] = pd.to_datetime(
+                    df_copy["time"], unit="s"
+                ).dt.year
+
+                # Map to user_idx (already done in setup, but just in case)
+                if "user_idx" not in df_copy.columns:
+                    df_copy["user_idx"] = df_copy["user"].map(self.user2idx)
+
+                # Get last click year per user
+                user_last_years = (
+                    df_copy.groupby("user_idx")["click_year"].max().to_dict()
+                )
+                self.user_last_click_years = user_last_years
+
+                log.info(
+                    f"Calculated last click year for {len(self.user_last_click_years)} users"
+                )
+            else:
+                log.warning(
+                    "No 'time' column found. Cannot calculate last click years."
+                )
+
+        except Exception as e:
+            log.error(f"Error loading item metadata: {e}")
+            # Initialize empty dicts on error
+            self.item_years = {}
+            self.user_last_click_years = {}
 
     def train_dataloader(self):
         """Create training dataloader"""
@@ -349,9 +446,59 @@ class BERT4RecDataModule(L.LightningDataModule):
 
     def get_all_sequences(self):
         """
-        Get all training sequences
+        Get all training sequences (for model input)
 
         Returns:
             Dict[user_idx, List[item_idx]]
         """
         return self.user_train
+
+    def get_full_sequences(self):
+        """
+        Get full sequences including validation items (for exclusion in inference)
+
+        Returns:
+            Dict[user_idx, Set[item_idx]]
+        """
+        full_sequences = {}
+        for user_idx in self.user_train.keys():
+            # train + validation 아이템 모두 포함
+            full_seq = self.user_train[user_idx] + [self.user_valid[user_idx]]
+            full_sequences[user_idx] = full_seq
+        return full_sequences
+
+    def get_future_item_sequences(self):
+        """
+        Get future item sequences where item release year > user's last click year
+        (for future information leakage analysis)
+
+        Uses:
+            - self.item_years: Dict[item_idx, year] - Item release years
+            - self.user_last_click_years: Dict[user_idx, year] - User's last click years
+
+        Returns:
+            Dict[user_idx, Set[item_idx]] - Future items per user
+        """
+        future_item_sequences = {}
+
+        for user_idx in self.user_train.keys():
+            # Get full sequence (train + valid)
+            full_seq = self.user_train[user_idx] + [self.user_valid[user_idx]]
+
+            # Get user's last click year
+            last_click_year = self.user_last_click_years.get(user_idx)
+            if last_click_year is None:
+                # No click year info for this user
+                future_item_sequences[user_idx] = []
+                continue
+
+            # Filter items where release year > last click year
+            future_items = set()
+            for item_idx in full_seq:
+                item_year = self.item_years.get(item_idx)
+                if item_year is not None and item_year > last_click_year:
+                    future_items.add(item_idx)
+
+            future_item_sequences[user_idx] = future_items
+
+        return future_item_sequences

@@ -21,7 +21,7 @@ class RecSysDataModule(L.LightningDataModule):
             batch_size: 512
             valid_ratio: 0.1
             min_interactions: 5
-            split_strategy: "random"  # "random", "leave_one_out", "temporal_user", "temporal_global"
+            split_strategy: "random"   # "random", "leave_one_out", "temporal_user", "temporal_global"
             temporal_split_ratio: 0.8  # temporal split용 (0.8 = 80% train, 20% valid)
 
     Split Strategies:
@@ -64,6 +64,12 @@ class RecSysDataModule(L.LightningDataModule):
         self.train_mat = None  # CSR sparse matrix (num_users, num_items)
         self.valid_gt = None  # dict: {user_idx: [item_idx, ...]}
 
+        # Item release years (indexed) - item_years: Dict[item_idx, year]
+        self.item_years = {}
+
+        # User's last click years - user_last_click_years: Dict[user_idx, year]
+        self.user_last_click_years = {}
+
     def prepare_data(self):
         """데이터 다운로드 및 전처리 (단일 프로세스에서만 실행)"""
         # 이미 로컬에 있는 데이터 사용
@@ -88,17 +94,28 @@ class RecSysDataModule(L.LightningDataModule):
             log.info(f"  - Users: {self.num_users:,}, Items: {self.num_items:,}")
 
             # 3. Train/Valid 분할
-            log.info(f"Step 3/4: Splitting train/validation data (strategy: {self.split_strategy})...")
+            log.info(
+                f"Step 3/4: Splitting train/validation data (strategy: {self.split_strategy})..."
+            )
             temporal_strategies = ["temporal_user", "temporal_global"]
-            if self.valid_ratio > 0 or self.split_strategy in ["leave_one_out"] + temporal_strategies:
+            if (
+                self.valid_ratio > 0
+                or self.split_strategy in ["leave_one_out"] + temporal_strategies
+            ):
                 if self.split_strategy == "random":
                     train_df, self.valid_gt = self._train_valid_split_random(df_enc)
                 elif self.split_strategy == "leave_one_out":
-                    train_df, self.valid_gt = self._train_valid_split_leave_one_out_optimized(df_enc)
+                    train_df, self.valid_gt = (
+                        self._train_valid_split_leave_one_out_optimized(df_enc)
+                    )
                 elif self.split_strategy == "temporal_user":
-                    train_df, self.valid_gt = self._train_valid_split_temporal_user(df_enc, df)
+                    train_df, self.valid_gt = self._train_valid_split_temporal_user(
+                        df_enc, df
+                    )
                 elif self.split_strategy == "temporal_global":
-                    train_df, self.valid_gt = self._train_valid_split_temporal_global(df_enc, df)
+                    train_df, self.valid_gt = self._train_valid_split_temporal_global(
+                        df_enc, df
+                    )
                 else:
                     raise ValueError(f"Unknown split_strategy: {self.split_strategy}")
 
@@ -118,7 +135,14 @@ class RecSysDataModule(L.LightningDataModule):
                 f"  - Sparsity: {100 * (1 - self.train_mat.nnz / (self.num_users * self.num_items)):.2f}%"
             )
 
+            # 5. Load item metadata (years)
+            log.info("Step 5/5: Loading item metadata...")
+            self._load_item_metadata(df)
+            log.info(f"  - Loaded year info for {len(self.item_years)} items")
+            log.info(f"  - Calculated last click year for {len(self.user_last_click_years)} users")
+
         log.info("DataModule setup complete!")
+
         log.info("=" * 60)
 
     def _read_interactions(self):
@@ -393,3 +417,110 @@ class RecSysDataModule(L.LightningDataModule):
         )
 
         return full_mat
+
+    def _load_item_metadata(self, df):
+        """
+        Item 메타데이터 로드 (영화 개봉년도)
+
+        Args:
+            df: Already loaded DataFrame with 'user', 'item', 'time' columns
+
+        Loads item release years and calculates user's last click years
+        Sets:
+            - self.item_years: Dict[item_idx, year]
+            - self.user_last_click_years: Dict[user_idx, year]
+        """
+        # Item release years (indexed) - item_years: Dict[item_idx, year]
+        self.item_years = {}
+
+        # User's last click years - user_last_click_years: Dict[user_idx, year]
+        self.user_last_click_years = {}
+
+        years_path = os.path.join(self.data_dir, "years.tsv")
+
+        # Check if years.tsv exists
+        if not os.path.exists(years_path):
+            log.warning(
+                f"years.tsv not found at {years_path}. Skipping metadata loading."
+            )
+            return
+
+        try:
+            # Load item release years
+            years_df = pd.read_csv(years_path, sep="\t")
+            log.info(f"Loaded {len(years_df)} items with release year info")
+
+            # Create item_years mapping (original_item_id -> year)
+            item_year_map = dict(zip(years_df["item"], years_df["year"]))
+
+            # Convert to indexed mapping (item_idx -> year)
+            for item_id, year in item_year_map.items():
+                if item_id in self.item2idx:
+                    item_idx = self.item2idx[item_id]
+                    self.item_years[item_idx] = year
+
+            log.info(f"Mapped {len(self.item_years)} items to release years")
+
+            # Calculate user's last click year from interaction data (use already loaded df)
+            if "time" in df.columns:
+                # Convert timestamp to year
+                df_copy = df.copy()
+                df_copy["click_year"] = pd.to_datetime(
+                    df_copy["time"], unit="s"
+                ).dt.year
+
+                # Map to user_idx
+                df_copy["user_idx"] = df_copy["user"].map(self.user2idx)
+
+                # Get last click year per user
+                user_last_years = (
+                    df_copy.groupby("user_idx")["click_year"].max().to_dict()
+                )
+                self.user_last_click_years = user_last_years
+
+                log.info(
+                    f"Calculated last click year for {len(self.user_last_click_years)} users"
+                )
+            else:
+                log.warning(
+                    "No 'time' column found. Cannot calculate last click years."
+                )
+
+        except Exception as e:
+            log.error(f"Error loading item metadata: {e}")
+            # Initialize empty dicts on error
+            self.item_years = {}
+            self.user_last_click_years = {}
+
+    def get_future_item_sequences(self):
+        """
+        Get future item sequences where item release year > user's last click year
+        (for future information leakage analysis)
+
+        Uses:
+            - self.item_years: Dict[item_idx, year] - Item release years
+            - self.user_last_click_years: Dict[user_idx, year] - User's last click years
+
+        Returns:
+            Dict[user_idx, Set[item_idx]] - Future items per user
+        """
+        future_item_sequences = {}
+
+        for user_idx in range(self.num_users):
+            # Get user's last click year
+            last_click_year = self.user_last_click_years.get(user_idx)
+            if last_click_year is None:
+                # No click year info for this user
+                future_item_sequences[user_idx] = set()
+                continue
+
+            # Filter items where release year > last click year
+            future_items = set()
+            for item_idx in range(self.num_items):
+                item_year = self.item_years.get(item_idx)
+                if item_year is not None and item_year > last_click_year:
+                    future_items.add(item_idx)
+
+            future_item_sequences[user_idx] = future_items
+
+        return future_item_sequences

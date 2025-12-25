@@ -62,6 +62,8 @@ python predict_bert4rec.py inference.checkpoint_path=saved/bert4rec/checkpoints/
 python predict_bert4rec.py inference.topk=20
 ```
 
+**⚠️ Future Information Leakage 방지**: 추론 시 각 유저의 마지막 클릭 시점 이후 개봉한 영화는 자동으로 추천에서 제외됩니다.
+
 ### 3. 스크립트로 실행
 
 ```bash
@@ -555,6 +557,128 @@ criterion = nn.CrossEntropyLoss(ignore_index=0)
 # mask[b, 0, i, j] = 1 if position j is valid (not padding)
 #                  = 0 if position j is padding
 ```
+
+## Future Information Leakage 방지
+
+### 개요
+
+영화 추천 시스템에서 **시간적 정보 유출(Future Information Leakage)** 문제를 방지하기 위해, 사용자가 아직 알 수 없는 미래 정보(개봉 전 영화)를 추천에서 자동으로 제외합니다.
+
+### 동작 원리
+
+```
+사용자의 마지막 클릭: 2018년 5월
+↓
+개봉년도가 2019년 이후인 영화들은 추천에서 제외
+(사용자가 2018년에 2019년 개봉 영화를 알 수 없음)
+```
+
+### 구현 세부사항
+
+#### 1. 데이터 로딩 ([src/data/bert4rec_data.py](../src/data/bert4rec_data.py))
+
+```python
+# years.tsv에서 영화 개봉년도 로드
+self.item_years = {}  # Dict[item_idx, year]
+
+# 사용자별 마지막 클릭 년도 계산
+self.user_last_click_years = {}  # Dict[user_idx, year]
+```
+
+**필요한 파일**:
+- `years.tsv`: 영화 ID와 개봉년도 매핑 (탭 구분)
+- `train_ratings.csv`: `time` 컬럼 필수 (Unix timestamp)
+
+#### 2. Future Items 필터링
+
+```python
+def get_future_item_sequences(self):
+    """
+    각 유저별로 추천에서 제외할 future items 반환
+
+    Returns:
+        Dict[user_idx, Set[item_idx]]
+    """
+    future_items = {}
+    for user_idx in users:
+        last_click_year = self.user_last_click_years[user_idx]
+        # 개봉년도 > 마지막 클릭 년도인 영화 필터링
+        future_items[user_idx] = {
+            item_idx for item_idx in items
+            if self.item_years[item_idx] > last_click_year
+        }
+    return future_items
+```
+
+#### 3. 추론 시 자동 적용 ([predict_bert4rec.py](../predict_bert4rec.py))
+
+```python
+# Future items 가져오기
+future_item_sequences = datamodule.get_future_item_sequences()
+
+# 추천에서 제외 (train + valid + future items)
+for user_idx in batch_users:
+    exclude_set = set(full_seq)  # 이미 본 영화
+    exclude_set.update(future_item_sequences[user_idx])  # Future 영화
+
+    top_items = model.predict(
+        user_sequences=batch_seqs,
+        topk=topk,
+        exclude_items=exclude_set  # 제외 목록
+    )
+```
+
+### 로그 예시
+
+```
+[INFO] Loading item metadata...
+[INFO] Loaded 6807 items with release year info
+[INFO] Calculated last click year for 31360 users
+[INFO] Future items to filter: 289456 items across 28934 users
+```
+
+### 예시
+
+**사용자 A**:
+- 마지막 클릭: `2018-05-15` → 년도: `2018`
+- 추천 후보: `[어벤져스: 엔드게임 (2019), 겨울왕국 2 (2019), ...]`
+- **결과**: 2019년 이후 개봉 영화 모두 제외 ✅
+
+**사용자 B**:
+- 마지막 클릭: `2020-12-01` → 년도: `2020`
+- 추천 후보: `[어벤져스: 엔드게임 (2019), 겨울왕국 2 (2019), ...]`
+- **결과**: 2019년 영화는 추천 가능 ✅
+
+### 비활성화 방법
+
+Future information leakage 방지를 비활성화하려면:
+
+```python
+# predict_bert4rec.py 수정
+future_item_sequences = datamodule.get_future_item_sequences()
+
+# 모든 유저에 대해 빈 set으로 변경
+future_item_sequences = {u: set() for u in range(datamodule.num_users)}
+```
+
+### 데이터 요구사항
+
+1. **years.tsv** (필수):
+   ```tsv
+   item	year
+   1	1995
+   2	1995
+   3	1995
+   ```
+
+2. **train_ratings.csv** (time 컬럼 필수):
+   ```csv
+   user,item,time
+   1,31,1260759144
+   1,1029,1260759179
+   ```
+
+`time` 컬럼이 없으면 year filtering이 작동하지 않습니다.
 
 ## 참고 자료
 

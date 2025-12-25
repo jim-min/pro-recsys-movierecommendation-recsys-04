@@ -272,6 +272,8 @@ python train_multi_vae.py data.split_strategy=temporal_global data.temporal_spli
 2. **Recall@K 계산** (Validation set)
 3. **Submission 파일 생성** (`saved/hydra_logs/{run_timestamp}/submissions/submission.csv`)
 
+**⚠️ Future Information Leakage 방지**: 추론 시 각 유저의 마지막 클릭 시점 이후 개봉한 영화는 자동으로 추천에서 제외됩니다.
+
 ```csv
 user,item
 11,123
@@ -894,6 +896,170 @@ model:
 - 원논문: [Variational Autoencoders for Collaborative Filtering (Liang et al., 2018)](https://arxiv.org/abs/1802.05814)
 - RecBole 구현: https://github.com/RUCAIBox/RecBole
 - Cornac 구현: https://github.com/PreferredAI/cornac
+
+---
+
+## Future Information Leakage 방지
+
+### 개요
+
+영화 추천 시스템에서 **시간적 정보 유출(Future Information Leakage)** 문제를 방지하기 위해, 사용자가 아직 알 수 없는 미래 정보(개봉 전 영화)를 추천에서 자동으로 제외합니다.
+
+### 동작 원리
+
+```
+사용자의 마지막 클릭: 2018년 5월
+↓
+개봉년도가 2019년 이후인 영화들은 추천에서 제외
+(사용자가 2018년에 2019년 개봉 영화를 알 수 없음)
+```
+
+### 구현 세부사항
+
+#### 1. 데이터 로딩 ([src/data/recsys_data.py](../src/data/recsys_data.py))
+
+```python
+# years.tsv에서 영화 개봉년도 로드
+self.item_years = {}  # Dict[item_idx, year]
+
+# 사용자별 마지막 클릭 년도 계산
+self.user_last_click_years = {}  # Dict[user_idx, year]
+```
+
+**필요한 파일**:
+- `years.tsv`: 영화 ID와 개봉년도 매핑 (탭 구분)
+- `train_ratings.csv`: `time` 컬럼 필수 (Unix timestamp)
+
+#### 2. Future Items 필터링
+
+```python
+def get_future_item_sequences(self):
+    """
+    각 유저별로 추천에서 제외할 future items 반환
+
+    Returns:
+        Dict[user_idx, Set[item_idx]]
+    """
+    future_items = {}
+    for user_idx in range(num_users):
+        last_click_year = self.user_last_click_years[user_idx]
+        # 개봉년도 > 마지막 클릭 년도인 영화 필터링
+        future_items[user_idx] = {
+            item_idx for item_idx in range(num_items)
+            if self.item_years[item_idx] > last_click_year
+        }
+    return future_items
+```
+
+#### 3. 추천 함수에 적용 ([src/utils/recommend.py](../src/utils/recommend.py))
+
+```python
+def recommend_topk(model, train_mat, k=10, exclude_items=None):
+    """
+    Args:
+        exclude_items: Dict[user_idx, Set[item_idx]]
+                      추천에서 제외할 아이템 (future items 등)
+    """
+    # 모델 추론
+    logits, _, _ = model(batch_tensor)
+    scores = logits.cpu().numpy()
+
+    # 이미 본 아이템 제외
+    scores[batch_mat.nonzero()] = -np.inf
+
+    # Future items 제외 (year filtering)
+    if exclude_items is not None:
+        for batch_idx, user_idx in enumerate(range(start_idx, end_idx)):
+            if user_idx in exclude_items:
+                future_items = list(exclude_items[user_idx])
+                if future_items:
+                    scores[batch_idx, future_items] = -np.inf
+
+    # Top-K 추출
+    topk_indices = np.argsort(-scores, axis=1)[:, :k]
+    return topk_indices
+```
+
+#### 4. 추론 시 자동 적용 ([predict_multi_vae.py](../predict_multi_vae.py))
+
+```python
+# Future items 가져오기
+future_item_sequences = datamodule.get_future_item_sequences()
+
+# Validation 추천 (future items 제외)
+recommendations_valid = recommend_topk(
+    model,
+    train_mat,
+    k=topk,
+    device=device,
+    batch_size=batch_size,
+    exclude_items=future_item_sequences  # 제외 목록
+)
+
+# Submission 추천 (future items 제외)
+recommendations_submission = recommend_topk(
+    model,
+    full_mat,
+    k=topk,
+    device=device,
+    batch_size=batch_size,
+    exclude_items=future_item_sequences  # 제외 목록
+)
+```
+
+### 로그 예시
+
+```
+[INFO] Step 5/5: Loading item metadata...
+[INFO] Loaded 6807 items with release year info
+[INFO] Mapped 6807 items to release years
+[INFO] Calculated last click year for 31360 users
+[INFO] Getting future item sequences for year filtering...
+[INFO] Future items to filter: 289456 items across 28934 users
+```
+
+### 예시
+
+**사용자 A**:
+- 마지막 클릭: `2018-05-15` → 년도: `2018`
+- 추천 후보: `[어벤져스: 엔드게임 (2019), 겨울왕국 2 (2019), ...]`
+- **결과**: 2019년 이후 개봉 영화 모두 제외 ✅
+
+**사용자 B**:
+- 마지막 클릭: `2020-12-01` → 년도: `2020`
+- 추천 후보: `[어벤져스: 엔드게임 (2019), 겨울왕국 2 (2019), ...]`
+- **결과**: 2019년 영화는 추천 가능 ✅
+
+### 비활성화 방법
+
+Future information leakage 방지를 비활성화하려면:
+
+```python
+# predict_multi_vae.py 수정
+future_item_sequences = datamodule.get_future_item_sequences()
+
+# 모든 유저에 대해 빈 set으로 변경
+future_item_sequences = {u: set() for u in range(datamodule.num_users)}
+```
+
+### 데이터 요구사항
+
+1. **years.tsv** (필수):
+   ```tsv
+   item	year
+   1	1995
+   2	1995
+   3	1995
+   ```
+
+2. **train_ratings.csv** (time 컬럼 필수):
+   ```csv
+   user,item,time
+   1,31,1260759144
+   1,1029,1260759179
+   ```
+
+`time` 컬럼이 없으면 year filtering이 작동하지 않습니다.
 
 ---
 

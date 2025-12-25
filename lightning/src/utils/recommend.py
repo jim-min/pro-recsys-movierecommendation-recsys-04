@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 
-def recommend_topk(model, train_mat, k=10, device="cuda", batch_size=512):
+def recommend_topk(model, train_mat, k=10, device="cuda", batch_size=512, exclude_items=None):
     """
     Top-K 추천 생성 (배치 단위 처리)
 
@@ -12,6 +12,7 @@ def recommend_topk(model, train_mat, k=10, device="cuda", batch_size=512):
         k: 추천할 아이템 개수
         device: 연산 디바이스
         batch_size: 배치 크기
+        exclude_items: Dict[user_idx, Set[item_idx]] - 추천에서 제외할 아이템 (future items 등)
 
     Returns:
         np.ndarray: (num_users, k) 각 유저별 top-k 추천 아이템 인덱스
@@ -36,6 +37,14 @@ def recommend_topk(model, train_mat, k=10, device="cuda", batch_size=512):
 
             # 이미 본 아이템 제거 (학습 데이터에 있는 아이템은 추천하지 않음)
             scores[batch_mat.nonzero()] = -np.inf
+
+            # Future items 제거 (year filtering)
+            if exclude_items is not None:
+                for batch_idx, user_idx in enumerate(range(start_idx, end_idx)):
+                    if user_idx in exclude_items:
+                        future_items = list(exclude_items[user_idx])
+                        if future_items:
+                            scores[batch_idx, future_items] = -np.inf
 
             # Top-K 추출
             topk_indices = np.argsort(-scores, axis=1)[:, :k]

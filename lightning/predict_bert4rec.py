@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
+from datetime import datetime
 
 from src.models.bert4rec import BERT4Rec
 from src.data.bert4rec_data import BERT4RecDataModule
@@ -75,19 +76,16 @@ def main(cfg: DictConfig):
     topk = cfg.inference.topk
     batch_size = cfg.inference.batch_size
 
-    # Output path: run_dir/submissions/bert4rec_predictions.csv
-    # checkpoint_dir: run_dir/checkpoints
-    # run_dir: checkpoint_dir의 상위 디렉토리
-    run_dir = os.path.dirname(checkpoint_dir)
+    # Output path: run_dir/submissions/bert4rec_predictions_10.csv
+    run_dir = os.path.dirname(os.path.dirname(checkpoint_path))
     output_path = os.path.join(
-        run_dir, "submissions", f"bert4rec_predictions_{topk}.csv"
+        run_dir,
+        "submissions",
+        f"bert4rec_predictions_{topk}_{datetime.now():%Y%m%d%H%M%S}.csv",
     )
 
     # Create submissions directory
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    # === Validation Evaluation ===
-    # 이미 트레인과정에서 NDCG@10을 계산함여 출력함
 
     # Generate predictions ================================================
     log.info(
@@ -95,8 +93,13 @@ def main(cfg: DictConfig):
     )
 
     results = []
-    user_sequences = datamodule.get_all_sequences()
-    user_indices = list(user_sequences.keys())
+
+    # train + valid (for both input and exclusion)
+    full_sequences = datamodule.get_full_sequences()
+    user_indices = list(full_sequences.keys())
+
+    # Future items per user
+    future_item_sequences = datamodule.get_future_item_sequences()
 
     # Process in batches
     for start_idx in tqdm(range(0, len(user_indices), batch_size), desc="Inference"):
@@ -108,9 +111,16 @@ def main(cfg: DictConfig):
         batch_exclude = []
 
         for user_idx in batch_users:
-            seq = user_sequences[user_idx]
-            batch_seqs.append(seq)
-            batch_exclude.append(set(seq))  # Exclude already interacted items
+            # train + valid
+            full_seq = full_sequences[user_idx]
+            # Use FULL sequence for prediction (train + valid)
+            batch_seqs.append(full_seq)
+            # Exclude ALL already interacted items (train + valid) + look ahead items
+            exclude_set = set(full_seq)
+            future_items = future_item_sequences.get(user_idx, [])
+            if future_items:
+                exclude_set.update(future_items)
+            batch_exclude.append(exclude_set)
 
         # Get predictions
         with torch.no_grad():
