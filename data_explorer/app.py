@@ -15,7 +15,7 @@ def main():
     st.sidebar.header("Configuration")
     
     # 1. Directory Input
-    default_dir = os.path.join(os.getcwd(), 'data', 'train')
+    default_dir = os.path.join('/data/ephemeral/home/Jiho', 'data', 'train')
     data_dir = st.sidebar.text_input("Data Directory", value=default_dir)
     
     if st.sidebar.button("Load Data"):
