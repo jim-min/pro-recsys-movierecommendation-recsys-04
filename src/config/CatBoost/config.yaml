@@ -7,7 +7,7 @@ data:
   submission_path: "/data/ephemeral/home/data/train/sample_submission.csv"
 
 train:
-  iterations: 1000
+  iterations: 5000
   learning_rate: 0.01
   depth: 6
   loss_function: YetiRank
