@@ -189,7 +189,7 @@ class BERT4Rec(L.LightningModule):
         num_layers: int = 3,
         max_len: int = 50,
         dropout_rate: float = 0.3,
-        random_mask_prob: float = 0.15,
+        random_mask_prob: float = 0.2,
         last_item_mask_ratio: float = 0.0,
         lr: float = 0.001,
         weight_decay: float = 0.0,
