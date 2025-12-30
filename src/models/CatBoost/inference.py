@@ -36,13 +36,12 @@ def load_movie_features(cfg):
 
     # 결측치 처리 (정보가 없는 경우 'unknown' 등으로 채워야 CatBoost 에러를 방지함)
     movie_features['year'] = movie_features['year'].fillna(movie_features['year'].median()).astype(int)
+
     movie_features = movie_features.fillna('unknown')
 
-    # 범주형 columns str로 변환
+    # 범주형 columns 변환
     movie_features['genre'] = movie_features['genre'].apply(lambda x: x if isinstance(x, list) else [])
     movie_features['director'] = movie_features['director'].fillna('unknown').astype(str)
-
-    movie_features['year'] = movie_features['year'].fillna(movie_features['year'].median()).astype(int)
 
     return movie_features
 
