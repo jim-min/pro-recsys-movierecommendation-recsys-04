@@ -36,7 +36,8 @@ def sample_config():
         "num_layers": 2,
         "max_len": 10,
         "dropout_rate": 0.1,
-        "mask_prob": 0.15,
+        "random_mask_prob": 0.15,
+        "last_item_mask_ratio": 0.0,  # Disable last item masking for basic tests
         "lr": 0.001,
         "weight_decay": 0.0,
         "share_embeddings": True,
@@ -64,7 +65,8 @@ def sample_config_no_metadata():
         "num_layers": 2,
         "max_len": 10,
         "dropout_rate": 0.1,
-        "mask_prob": 0.15,
+        "random_mask_prob": 0.15,
+        "last_item_mask_ratio": 0.0,  # Disable last item masking for basic tests
         "lr": 0.001,
         "weight_decay": 0.0,
         "share_embeddings": True,

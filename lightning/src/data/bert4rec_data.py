@@ -22,9 +22,10 @@ class BERT4RecDataset(Dataset):
         user_sequences,
         num_items,
         max_len,
-        mask_prob,
+        random_mask_prob,
         mask_token,
         pad_token,
+        last_item_mask_ratio=0.2,
         item_genres=None,
         item_directors=None,
         item_writers=None,
@@ -36,9 +37,11 @@ class BERT4RecDataset(Dataset):
             user_sequences: Dict[user_id, List[item_id]] - User interaction sequences
             num_items: Number of unique items
             max_len: Maximum sequence length
-            mask_prob: Probability of masking items
+            random_mask_prob: Probability of masking items (for random masking)
             mask_token: Token ID for [MASK]
             pad_token: Token ID for padding
+            last_item_mask_ratio: Probability of additionally masking the last item on top of random masking (default: 0.2)
+                                  This boosts next-item prediction while maintaining data diversity
             item_genres: Dict[item_idx, List[genre_idx]] - Item genre mappings
             item_directors: Dict[item_idx, director_idx] - Item director mappings
             item_writers: Dict[item_idx, List[writer_idx]] - Item writer mappings
@@ -48,9 +51,10 @@ class BERT4RecDataset(Dataset):
         self.user_sequences = user_sequences
         self.num_items = num_items
         self.max_len = max_len
-        self.mask_prob = mask_prob
+        self.random_mask_prob = random_mask_prob
         self.mask_token = mask_token
         self.pad_token = pad_token
+        self.last_item_mask_ratio = last_item_mask_ratio
 
         # Metadata
         self.item_genres = item_genres or {}
@@ -75,8 +79,16 @@ class BERT4RecDataset(Dataset):
         user = self.users[idx]
         seq = self.user_sequences[user]
 
-        # Apply masking
-        tokens, labels = self._mask_sequence(seq)
+        # Always apply random masking first (for data diversity)
+        tokens, labels = self._random_mask_sequence(seq)
+
+        # Additionally mask the last item with probability last_item_mask_ratio
+        # This boosts next-item prediction performance while maintaining data diversity
+        if len(seq) > 0 and np.random.random() < self.last_item_mask_ratio:
+            # Force mask the last item (overwrite if already masked)
+            last_idx = len(seq) - 1
+            tokens[last_idx] = self.mask_token
+            labels[last_idx] = seq[last_idx]  # Original item as label
 
         # Truncate or pad
         tokens = tokens[-self.max_len :]
@@ -152,9 +164,9 @@ class BERT4RecDataset(Dataset):
 
         return metadata
 
-    def _mask_sequence(self, seq):
+    def _random_mask_sequence(self, seq):
         """
-        Apply BERT-style masking to sequence
+        Apply BERT-style random masking to sequence
 
         Args:
             seq: List[int] - Original sequence
@@ -168,9 +180,9 @@ class BERT4RecDataset(Dataset):
         for item in seq:
             prob = np.random.random()
 
-            if prob < self.mask_prob:
+            if prob < self.random_mask_prob:
                 # This position will be masked
-                prob /= self.mask_prob
+                prob /= self.random_mask_prob
 
                 if prob < 0.8:
                     # 80%: Replace with [MASK]
@@ -187,6 +199,29 @@ class BERT4RecDataset(Dataset):
                 # Not masked
                 tokens.append(item)
                 labels.append(self.pad_token)  # Ignore in loss (label = 0)
+
+        return tokens, labels
+
+    def _mask_last_item(self, seq):
+        """
+        Mask only the last item in the sequence (for next item prediction)
+
+        Args:
+            seq: List[int] - Original sequence
+        Returns:
+            tokens: List[int] - Sequence with last item masked
+            labels: List[int] - Labels (0 except for last position)
+        """
+        if len(seq) == 0:
+            return [], []
+
+        tokens = list(seq)
+        labels = [self.pad_token] * len(seq)
+
+        # Mask the last item
+        last_item = tokens[-1]
+        tokens[-1] = self.mask_token
+        labels[-1] = last_item
 
         return tokens, labels
 
@@ -349,7 +384,8 @@ class BERT4RecDataModule(L.LightningDataModule):
             data_file: "train_ratings.csv"
             batch_size: 128
             max_len: 50
-            mask_prob: 0.15
+            random_mask_prob: 0.15
+            last_item_mask_ratio: 0.2
             min_interactions: 3
             seed: 42
             num_workers: 4
@@ -364,7 +400,8 @@ class BERT4RecDataModule(L.LightningDataModule):
         data_file: str = "train_ratings.csv",
         batch_size: int = 128,
         max_len: int = 50,
-        mask_prob: float = 0.15,
+        random_mask_prob: float = 0.15,
+        last_item_mask_ratio: float = 0.2,
         min_interactions: int = 3,
         seed: int = 42,
         num_workers: int = 4,
@@ -375,7 +412,8 @@ class BERT4RecDataModule(L.LightningDataModule):
         self.data_file = data_file
         self.batch_size = batch_size
         self.max_len = max_len
-        self.mask_prob = mask_prob
+        self.random_mask_prob = random_mask_prob
+        self.last_item_mask_ratio = last_item_mask_ratio
         self.min_interactions = min_interactions
         self.seed = seed
         self.num_workers = num_workers
@@ -780,9 +818,10 @@ class BERT4RecDataModule(L.LightningDataModule):
             user_sequences=self.user_train,
             num_items=self.num_items,
             max_len=self.max_len,
-            mask_prob=self.mask_prob,
+            random_mask_prob=self.random_mask_prob,
             mask_token=self.mask_token,
             pad_token=self.pad_token,
+            last_item_mask_ratio=self.last_item_mask_ratio,
             item_genres=self.item_genres,
             item_directors=self.item_directors,
             item_writers=self.item_writers,

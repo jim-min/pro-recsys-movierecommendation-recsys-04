@@ -45,7 +45,8 @@ def main(cfg: DictConfig):
         data_file=cfg.data.data_file,
         batch_size=cfg.inference.batch_size,
         max_len=cfg.model.max_len,
-        mask_prob=cfg.model.mask_prob,  # Not used in inference
+        random_mask_prob=cfg.model.random_mask_prob,  # Not used in inference
+        last_item_mask_ratio=cfg.model.last_item_mask_ratio,  # Not used in inference
         min_interactions=cfg.data.min_interactions,
         seed=cfg.data.seed,
         num_workers=cfg.data.num_workers,

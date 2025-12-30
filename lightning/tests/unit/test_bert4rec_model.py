@@ -20,6 +20,8 @@ class TestBERT4RecModelInitialization:
         assert bert4rec_model.hidden_units == sample_config["hidden_units"]
         assert bert4rec_model.num_heads == sample_config["num_heads"]
         assert bert4rec_model.num_layers == sample_config["num_layers"]
+        assert bert4rec_model.random_mask_prob == sample_config["random_mask_prob"]
+        assert bert4rec_model.last_item_mask_ratio == sample_config["last_item_mask_ratio"]
 
     def test_special_tokens_initialized(self, bert4rec_model):
         """Test special tokens (pad, mask) are set correctly"""
@@ -35,6 +37,23 @@ class TestBERT4RecModelInitialization:
         assert hasattr(bert4rec_model, "genre_emb")
         assert hasattr(bert4rec_model, "director_emb")
         assert hasattr(bert4rec_model, "writer_emb")
+
+
+    def test_last_item_mask_ratio_initialized(self, sample_config):
+        """Test last_item_mask_ratio is properly initialized"""
+        # Test with different ratios
+        for ratio in [0.0, 0.1, 0.5, 1.0]:
+            config = {**sample_config, "last_item_mask_ratio": ratio}
+            model = BERT4Rec(**config)
+            assert model.last_item_mask_ratio == ratio
+
+    def test_random_mask_prob_initialized(self, sample_config):
+        """Test random_mask_prob is properly initialized"""
+        # Test with different probabilities
+        for prob in [0.0, 0.15, 0.2, 0.5]:
+            config = {**sample_config, "random_mask_prob": prob}
+            model = BERT4Rec(**config)
+            assert model.random_mask_prob == prob
 
 
 @pytest.mark.unit

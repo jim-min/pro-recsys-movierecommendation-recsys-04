@@ -25,7 +25,8 @@ model:
   num_layers: 2                # 논문: 2 (초기: 3은 과적합 위험)
   max_len: 200                 # 증가 (초기: 50, user당 평균 rating 건수 163)
   dropout_rate: 0.2            # 감소 (초기: 0.3)
-  mask_prob: 0.2               # 증가 (초기: 0.15, 논문: 0.15-0.2)
+  random_mask_prob: 0.2        # 랜덤 마스킹 확률 (초기: 0.15, 논문: 0.15-0.2)
+  last_item_mask_ratio: 0.1    # 마지막 아이템만 마스킹하는 샘플 비율 (논문 권장)
   share_embeddings: true
   
   # Metadata settings

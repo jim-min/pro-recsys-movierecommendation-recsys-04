@@ -6,6 +6,43 @@ BERT4Rec (Bidirectional Encoder Representations from Transformers for Sequential
 
 **논문**: [BERT4Rec: Sequential Recommendation with Bidirectional Encoder Representations from Transformer](https://arxiv.org/abs/1904.06690)
 
+## ✨ 최신 개선사항 (2025-12-29)
+
+### Masking Strategy 개선: Random + Boost 방식
+
+기존의 last-item masking 전략을 개선하여 **데이터 효율성과 성능을 동시에 향상**시켰습니다.
+
+**기존 방식의 문제점**:
+- `last_item_mask_ratio` 비율의 샘플만 마지막 아이템만 마스킹
+- 이 샘플들은 매 epoch마다 **같은 마스킹 패턴** 반복
+- 데이터 다양성 부족으로 학습 비효율
+
+**개선된 방식** (Random + Boost):
+```python
+# 모든 샘플에 대해:
+1. Random masking 적용 (매 epoch 다른 패턴)
+2. last_item_mask_ratio 확률로 마지막 아이템 추가 마스킹
+```
+
+**개선 효과**:
+| 항목 | 기존 방식 | 개선 방식 |
+|------|----------|----------|
+| 데이터 다양성 | ❌ 일부 샘플 고정 패턴 | ✅ 모든 샘플 매 epoch 변화 |
+| Random masking | 90% 샘플만 | ✅ 100% 샘플 |
+| Next-item focus | ✅ 학습됨 | ✅✅ 더 강화됨 |
+| 학습 효율 | ⚠️ 중복 학습 | ✅ 효율적 |
+
+**사용 방법**:
+```yaml
+model:
+  random_mask_prob: 0.2        # 모든 샘플에 랜덤 마스킹
+  last_item_mask_ratio: 0.05   # 5% 확률로 마지막 아이템 추가 마스킹
+```
+
+자세한 내용은 [Masking Strategy](#masking-strategy-논문-section-32) 섹션을 참조하세요.
+
+---
+
 ## 파일 구조
 
 ```
@@ -106,13 +143,14 @@ data:
 
 ```yaml
 model:
-  hidden_units: 256       # Hidden dimension (논문: dataset-dependent)
-  num_heads: 4            # Attention heads 수 (논문: dataset-dependent)
-  num_layers: 2           # Transformer blocks 수 (논문: 2 for most datasets)
-  max_len: 200            # 최대 시퀀스 길이 (논문: 200 for ML-1M)
-  dropout_rate: 0.2       # Dropout 확률 (논문: 0.2~0.5)
-  mask_prob: 0.2          # Masking 확률 (논문: 0.15, BERT와 동일)
-  share_embeddings: true  # Output layer와 embedding 공유 (논문: Yes)
+  hidden_units: 256            # Hidden dimension (논문: dataset-dependent)
+  num_heads: 4                 # Attention heads 수 (논문: dataset-dependent)
+  num_layers: 2                # Transformer blocks 수 (논문: 2 for most datasets)
+  max_len: 200                 # 최대 시퀀스 길이 (논문: 200 for ML-1M)
+  dropout_rate: 0.2            # Dropout 확률 (논문: 0.2~0.5)
+  random_mask_prob: 0.2        # 랜덤 마스킹 확률 (논문: 0.15, BERT와 동일)
+  last_item_mask_ratio: 0.05   # 랜덤 마스킹 후 추가로 마지막 아이템을 마스킹할 확률 (next-item prediction 강화)
+  share_embeddings: true       # Output layer와 embedding 공유 (논문: Yes)
 
   # 메타데이터 설정 (확장 기능)
   use_genre_emb: false      # 장르 임베딩 사용
@@ -144,7 +182,7 @@ training:
   early_stopping: true             # Early stopping (논문: 사용)
   early_stopping_patience: 20      # Patience
   accelerator: "auto"              # GPU/CPU 자동 선택
-  precision: "16-mixed"            # V100 최적화: Tensor Core 활용 (1.5~2배 속도)
+  precision: "32-true"             # 32-bit precision (안정성 우선) / "16-mixed": V100 최적화 (속도 우선)
 ```
 
 ## 아이템 메타데이터 기능 (확장)
@@ -754,12 +792,58 @@ where W₁: hidden → 4*hidden
 
 ### Masking Strategy (논문 Section 3.2)
 
-학습 시 각 아이템은 **15% 확률**로 마스킹:
+학습 시 두 가지 마스킹 전략을 혼합하여 사용합니다:
+
+#### 1. Random Masking (기본 전략)
+
+각 아이템은 **`random_mask_prob` 확률**로 랜덤하게 마스킹:
 - **80%**: `[MASK]` 토큰으로 대체
 - **10%**: 랜덤 아이템으로 대체
 - **10%**: 원본 유지
 
-추론 시:
+#### 2. Last Item Masking Boost (추가 전략)
+
+**모든 샘플**에 랜덤 마스킹을 적용한 후, **`last_item_mask_ratio` 확률**로 마지막 아이템을 추가로 마스킹:
+- 랜덤 마스킹으로 다양한 패턴 학습 (매 epoch 다른 mask pattern)
+- 추가로 마지막 아이템을 강제 마스킹하여 next-item prediction 강화
+- 추론 시나리오와 일치하는 패턴 학습
+
+**설정 예시** ([bert4rec_v2.yaml](../configs/bert4rec_v2.yaml)):
+```yaml
+model:
+  random_mask_prob: 0.2        # 랜덤 마스킹 확률
+  last_item_mask_ratio: 0.05   # 랜덤 마스킹 후 추가로 마지막 아이템을 마스킹할 확률
+```
+
+**동작 방식** (개선됨):
+```
+모든 샘플에 대해:
+1. Random masking 적용 (20% 확률로 각 아이템)
+2. 5% 확률로 마지막 아이템을 추가로 마스킹
+
+매 epoch마다 다른 mask pattern 생성 → 데이터 다양성 향상
+```
+
+**장점**:
+- ✅ **매 epoch 다양한 학습 데이터** (기존: 같은 last-item mask 반복)
+- ✅ **Random masking + Last-item masking 효과 동시 획득**
+- ✅ 추론 시와 동일한 마스킹 패턴으로 학습하여 성능 향상
+- ✅ 시퀀스의 마지막 아이템 예측 능력 강화
+
+**구현 상세** ([bert4rec_data.py:81-90](../src/data/bert4rec_data.py#L81-L90)):
+```python
+# Always apply random masking first (for data diversity)
+tokens, labels = self._random_mask_sequence(seq)
+
+# Additionally mask the last item with probability last_item_mask_ratio
+if len(seq) > 0 and np.random.random() < self.last_item_mask_ratio:
+    # Force mask the last item (overwrite if already masked)
+    last_idx = len(seq) - 1
+    tokens[last_idx] = self.mask_token
+    labels[last_idx] = seq[last_idx]  # Original item as label
+```
+
+**추론 시**:
 - 마지막 위치에 `[MASK]` 추가
 - 모델이 다음 아이템 예측
 
@@ -990,9 +1074,9 @@ self.log('val_mrr', mrr, ...)
 data:
   batch_size: 64
 
-# Mixed precision 사용
+# 학습 안정성을 위해 32-bit precision 사용 (또는 "16-mixed"로 속도 향상)
 training:
-  precision: "16-mixed"
+  precision: "32-true"
 ```
 
 ### 2. 학습 속도 향상
@@ -1090,9 +1174,9 @@ data:
 model:
   max_len: 30
 
-# Mixed precision 사용
+# 학습 안정성을 위해 32-bit precision 사용 (또는 "16-mixed"로 속도 향상)
 training:
-  precision: "16-mixed"
+  precision: "32-true"
 ```
 
 ### 학습이 느린 경우

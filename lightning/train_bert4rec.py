@@ -49,7 +49,8 @@ def main(cfg: DictConfig):
         data_file=cfg.data.data_file,
         batch_size=cfg.data.batch_size,
         max_len=cfg.model.max_len,
-        mask_prob=cfg.model.mask_prob,
+        random_mask_prob=cfg.model.random_mask_prob,
+        last_item_mask_ratio=cfg.model.last_item_mask_ratio,
         min_interactions=cfg.data.min_interactions,
         seed=cfg.data.seed,
         num_workers=cfg.data.num_workers,
@@ -70,7 +71,7 @@ def main(cfg: DictConfig):
         num_layers=cfg.model.num_layers,
         max_len=cfg.model.max_len,
         dropout_rate=cfg.model.dropout_rate,
-        mask_prob=cfg.model.mask_prob,
+        random_mask_prob=cfg.model.random_mask_prob,
         lr=cfg.training.lr,
         weight_decay=cfg.training.weight_decay,
         share_embeddings=cfg.model.share_embeddings,
@@ -103,6 +104,7 @@ def main(cfg: DictConfig):
     logger = TensorBoardLogger(
         save_dir=tensorboard_dir,
         name="",  # 이미 경로에 포함되어 있으므로 빈 문자열
+        version="",  # version_0 디렉토리 생성 방지
     )
 
     # Log hyperparameters to TensorBoard
@@ -118,7 +120,8 @@ def main(cfg: DictConfig):
         "model/num_layers": cfg.model.num_layers,
         "model/max_len": cfg.model.max_len,
         "model/dropout_rate": cfg.model.dropout_rate,
-        "model/mask_prob": cfg.model.mask_prob,
+        "model/random_mask_prob": cfg.model.random_mask_prob,
+        "model/last_item_mask_ratio": cfg.model.last_item_mask_ratio,
         "model/share_embeddings": cfg.model.share_embeddings,
         "model/use_genre_emb": cfg.model.use_genre_emb,
         "model/use_director_emb": cfg.model.use_director_emb,
@@ -144,8 +147,12 @@ def main(cfg: DictConfig):
     }
 
     # Define metrics to track in HPARAMS (required for TensorBoard HPARAMS tab)
+    # 실제 학습 중 로깅되는 metric 이름과 동일하게 설정
     metrics = {
-        "hp_metric": 0,  # Placeholder, will be updated during training
+        "val/recall@5": 0.0,
+        "val/recall@10": 0.0,
+        "val/ndcg@5": 0.0,
+        "val/ndcg@10": 0.0,
     }
 
     # Log both hparams and metrics for TensorBoard HPARAMS plugin
@@ -182,20 +189,30 @@ def main(cfg: DictConfig):
 
     callbacks.append(checkpoint_callback)
 
-    # EarlyStopping: Stop training if validation metric doesn't improve
-    # Disable early stopping when using full data (no validation)
-    use_full_data = cfg.data.use_full_data
-    if cfg.training.early_stopping and not use_full_data:
-        early_stopping = EarlyStopping(
-            monitor=cfg.checkpoint.monitor,
-            patience=cfg.training.early_stopping_patience,
-            mode=cfg.checkpoint.mode,
-            verbose=True,
-        )
-        callbacks.append(early_stopping)
-        log.info("Early stopping enabled")
-    elif use_full_data:
-        log.info("Early stopping disabled (use_full_data=True)")
+    # EarlyStopping: Stop training if metric doesn't improve
+    if cfg.training.early_stopping:
+        if use_full_data:
+            # Full data mode: monitor train_loss
+            early_stopping = EarlyStopping(
+                monitor="train_loss",
+                patience=cfg.training.early_stopping_patience,
+                mode="min",
+                verbose=True,
+            )
+            callbacks.append(early_stopping)
+            log.info("Early stopping enabled (monitoring train_loss for full data mode)")
+        else:
+            # Standard mode: monitor validation metric
+            early_stopping = EarlyStopping(
+                monitor=cfg.checkpoint.monitor,
+                patience=cfg.training.early_stopping_patience,
+                mode=cfg.checkpoint.mode,
+                verbose=True,
+            )
+            callbacks.append(early_stopping)
+            log.info(f"Early stopping enabled (monitoring {cfg.checkpoint.monitor})")
+    else:
+        log.info("Early stopping disabled")
 
     # LearningRateMonitor: Log learning rate
     lr_monitor = LearningRateMonitor(logging_interval="epoch")

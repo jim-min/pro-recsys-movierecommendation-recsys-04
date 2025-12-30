@@ -175,7 +175,7 @@ class BERT4Rec(L.LightningModule):
             num_layers: 3
             max_len: 50
             dropout_rate: 0.3
-            mask_prob: 0.15
+            random_mask_prob: 0.15
         training:
             lr: 0.001
             weight_decay: 0.0
@@ -189,7 +189,8 @@ class BERT4Rec(L.LightningModule):
         num_layers: int = 3,
         max_len: int = 50,
         dropout_rate: float = 0.3,
-        mask_prob: float = 0.15,
+        random_mask_prob: float = 0.15,
+        last_item_mask_ratio: float = 0.0,
         lr: float = 0.001,
         weight_decay: float = 0.0,
         share_embeddings: bool = True,
@@ -213,7 +214,8 @@ class BERT4Rec(L.LightningModule):
             num_layers: Number of transformer blocks
             max_len: Maximum sequence length
             dropout_rate: Dropout probability
-            mask_prob: Probability of masking items during training
+            random_mask_prob: Probability of masking items during random masking (not used in model, kept for compatibility)
+            last_item_mask_ratio: Ratio of samples using last item masking (not used in model, kept for compatibility)
             lr: Learning rate
             weight_decay: Weight decay for optimizer
             share_embeddings: Whether to share item embeddings with output layer
@@ -237,7 +239,8 @@ class BERT4Rec(L.LightningModule):
         self.num_layers = num_layers
         self.max_len = max_len
         self.dropout_rate = dropout_rate
-        self.mask_prob = mask_prob
+        self.random_mask_prob = random_mask_prob
+        self.last_item_mask_ratio = last_item_mask_ratio
         self.lr = lr
         self.weight_decay = weight_decay
         self.share_embeddings = share_embeddings
@@ -488,44 +491,6 @@ class BERT4Rec(L.LightningModule):
             return logits, gate_values
         return logits
 
-    def mask_sequence(self, seq):
-        """
-        Apply BERT-style masking to a sequence
-
-        Args:
-            seq: [seq_len] - Original sequence
-        Returns:
-            tokens: [seq_len] - Masked sequence
-            labels: [seq_len] - Labels (0 for non-masked, original item for masked)
-        """
-        tokens = []
-        labels = []
-
-        for item in seq:
-            prob = np.random.random()
-
-            if prob < self.mask_prob:
-                # Masked position
-                prob /= self.mask_prob
-
-                if prob < 0.8:
-                    # 80%: Replace with [MASK]
-                    tokens.append(self.mask_token)
-                elif prob < 0.9:
-                    # 10%: Replace with random item
-                    tokens.append(np.random.randint(1, self.num_items + 1))
-                else:
-                    # 10%: Keep original
-                    tokens.append(item)
-
-                labels.append(item)  # Original item as label
-            else:
-                # Not masked
-                tokens.append(item)
-                labels.append(self.pad_token)  # Ignore in loss
-
-        return tokens, labels
-
     def training_step(self, batch, batch_idx):
         """
         Training step for Lightning
@@ -702,8 +667,8 @@ class BERT4Rec(L.LightningModule):
         max_writers = 5
 
         # Genres (multi-hot, padded)
-        if 'genres' in item_metadata:
-            item_genres = item_metadata['genres']
+        if "genres" in item_metadata:
+            item_genres = item_metadata["genres"]
             genre_batch = []
             for seq in seqs:
                 seq_genres = []
@@ -715,20 +680,26 @@ class BERT4Rec(L.LightningModule):
                         genres = [0] * max_genres
                     seq_genres.append(genres)
                 genre_batch.append(seq_genres)
-            metadata["genres"] = torch.LongTensor(genre_batch).to(self.device)  # [batch, seq_len, max_genres]
+            metadata["genres"] = torch.LongTensor(genre_batch).to(
+                self.device
+            )  # [batch, seq_len, max_genres]
 
         # Directors (single value per item)
-        if 'directors' in item_metadata:
-            item_directors = item_metadata['directors']
+        if "directors" in item_metadata:
+            item_directors = item_metadata["directors"]
             director_batch = []
             for seq in seqs:
-                seq_directors = [item_directors.get(int(item_idx), 0) for item_idx in seq]
+                seq_directors = [
+                    item_directors.get(int(item_idx), 0) for item_idx in seq
+                ]
                 director_batch.append(seq_directors)
-            metadata["directors"] = torch.LongTensor(director_batch).to(self.device)  # [batch, seq_len]
+            metadata["directors"] = torch.LongTensor(director_batch).to(
+                self.device
+            )  # [batch, seq_len]
 
         # Writers (multi-hot, padded)
-        if 'writers' in item_metadata:
-            item_writers = item_metadata['writers']
+        if "writers" in item_metadata:
+            item_writers = item_metadata["writers"]
             writer_batch = []
             for seq in seqs:
                 seq_writers = []
@@ -740,11 +711,13 @@ class BERT4Rec(L.LightningModule):
                         writers = [0] * max_writers
                     seq_writers.append(writers)
                 writer_batch.append(seq_writers)
-            metadata["writers"] = torch.LongTensor(writer_batch).to(self.device)  # [batch, seq_len, max_writers]
+            metadata["writers"] = torch.LongTensor(writer_batch).to(
+                self.device
+            )  # [batch, seq_len, max_writers]
 
         # Title embeddings (pre-computed)
-        if 'title_embs' in item_metadata:
-            item_title_embs = item_metadata['title_embs']
+        if "title_embs" in item_metadata:
+            item_title_embs = item_metadata["title_embs"]
             # Get embedding dimension from first available embedding
             title_dim = None
             for emb in item_title_embs.values():
@@ -761,7 +734,9 @@ class BERT4Rec(L.LightningModule):
                         else:
                             seq_titles.append(np.zeros(title_dim))
                     title_batch.append(seq_titles)
-                metadata["title_embs"] = torch.FloatTensor(np.array(title_batch)).to(self.device)  # [batch, seq_len, title_dim]
+                metadata["title_embs"] = torch.FloatTensor(np.array(title_batch)).to(
+                    self.device
+                )  # [batch, seq_len, title_dim]
 
         return metadata
 

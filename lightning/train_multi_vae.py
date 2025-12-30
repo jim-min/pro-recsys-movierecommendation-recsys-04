@@ -82,6 +82,7 @@ def main(cfg: DictConfig):
     logger = TensorBoardLogger(
         save_dir=tensorboard_dir,
         name="",  # 이미 경로에 포함되어 있으므로 빈 문자열
+        version="",  # version_0 디렉토리 생성 방지
     )
 
     # Callbacks
