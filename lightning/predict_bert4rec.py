@@ -50,6 +50,7 @@ def main(cfg: DictConfig):
         min_interactions=cfg.data.min_interactions,
         seed=cfg.data.seed,
         num_workers=cfg.data.num_workers,
+        sampling_strategy=cfg.data.sampling_strategy,  # Match training configuration
     )
 
     # Setup data

@@ -24,4 +24,7 @@ dependencies = [
     "recbole>=1.2.1",
     "xgboost>=3.1.2",
     "transformers>=4.57.3",
+    "optuna>=4.6.0",
+    "optuna-integration>=4.6.0",
+    "optuna-dashboard>=0.20.0",
 ]

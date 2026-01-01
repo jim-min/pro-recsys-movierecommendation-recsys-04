@@ -1,0 +1,14 @@
+model:
+  hidden_units: 256
+  num_heads: 8
+  num_layers: 2
+  max_len: 200
+  dropout_rate: 0.21236585373000072
+  random_mask_prob: 0.22810602667312604
+  last_item_mask_ratio: 0.1594880720058324
+training:
+  lr: 0.0006923566384274254
+  weight_decay: 0.05618901240390203
+data:
+  batch_size: 128
+best_score: 0.07580757141113281

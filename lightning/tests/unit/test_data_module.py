@@ -724,3 +724,310 @@ class TestGetItemMetadata:
 
         for item_idx in metadata["writers"].keys():
             assert 1 <= item_idx <= dm.num_items
+
+
+@pytest.mark.unit
+class TestWeightedSampling:
+    """Test weighted sampling strategy functionality"""
+
+    def test_weighted_sampling_strategy_parameter(self, temp_data_dir):
+        """Test that sampling_strategy parameter is accepted"""
+        dm = BERT4RecDataModule(
+            data_dir=temp_data_dir,
+            data_file="train_ratings.csv",
+            batch_size=2,
+            max_len=10,
+            sampling_strategy="weighted",
+        )
+        dm.setup()
+
+        assert dm.sampling_strategy == "weighted"
+
+    def test_recent_sampling_strategy_is_default(self, temp_data_dir):
+        """Test that 'recent' is the default sampling strategy"""
+        dm = BERT4RecDataModule(
+            data_dir=temp_data_dir,
+            data_file="train_ratings.csv",
+            batch_size=2,
+            max_len=10,
+        )
+        dm.setup()
+
+        assert dm.sampling_strategy == "recent"
+
+    def test_weighted_sampling_returns_correct_length(self):
+        """Test weighted sampling returns sequences of correct length"""
+        # Create test data
+        user_sequences = {0: list(range(1, 101))}  # 100 items
+        max_len = 50
+
+        dataset = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=100,
+            max_len=max_len,
+            random_mask_prob=0.0,  # Disable masking for testing
+            mask_token=101,
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        tokens, labels, _ = dataset[0]
+
+        # Should return max_len items
+        assert tokens.shape[0] == max_len
+        assert labels.shape[0] == max_len
+
+    def test_weighted_sampling_preserves_order(self):
+        """Test weighted sampling maintains original sequence order"""
+        # Create test data with identifiable pattern
+        user_sequences = {0: list(range(1, 201))}  # Items 1-200
+        max_len = 100
+
+        dataset = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=200,
+            max_len=max_len,
+            random_mask_prob=0.0,
+            mask_token=201,
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        # Run multiple times to check order preservation
+        for _ in range(5):
+            tokens, _, _ = dataset[0]
+            non_pad_tokens = tokens[tokens != 0].tolist()
+
+            # Check that sampled items are in increasing order
+            assert non_pad_tokens == sorted(non_pad_tokens), "Order should be preserved"
+
+    def test_weighted_sampling_no_duplicates(self):
+        """Test weighted sampling samples without replacement (no duplicates)"""
+        user_sequences = {0: list(range(1, 101))}  # 100 items
+        max_len = 50
+
+        dataset = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=100,
+            max_len=max_len,
+            random_mask_prob=0.0,
+            mask_token=101,
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        # Run multiple times
+        for _ in range(10):
+            tokens, _, _ = dataset[0]
+            non_pad_tokens = tokens[tokens != 0].tolist()
+
+            # Check no duplicates
+            assert len(non_pad_tokens) == len(set(non_pad_tokens)), "Should have no duplicates"
+
+    def test_weighted_sampling_favors_recent_items(self):
+        """Test weighted sampling favors more recent items"""
+        user_sequences = {0: list(range(1, 201))}  # Items 1-200
+        max_len = 100
+        num_samples = 1000
+
+        dataset = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=200,
+            max_len=max_len,
+            random_mask_prob=0.0,
+            mask_token=201,
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        # Count how often each item is sampled
+        from collections import Counter
+        item_counts = Counter()
+
+        for _ in range(num_samples):
+            tokens, _, _ = dataset[0]
+            non_pad_tokens = tokens[tokens != 0].tolist()
+            item_counts.update(non_pad_tokens)
+
+        # Recent items (higher numbers) should be sampled more frequently
+        # Compare first quartile vs last quartile
+        first_quartile_avg = np.mean([item_counts[i] for i in range(1, 51)])
+        last_quartile_avg = np.mean([item_counts[i] for i in range(151, 201)])
+
+        # Last quartile should be sampled significantly more
+        assert last_quartile_avg > first_quartile_avg * 2, \
+            f"Recent items should be sampled more: {last_quartile_avg} vs {first_quartile_avg}"
+
+    def test_weighted_sampling_short_sequence(self):
+        """Test weighted sampling with sequence shorter than max_len"""
+        user_sequences = {0: list(range(1, 11))}  # Only 10 items
+        max_len = 50
+
+        dataset = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=100,  # Large enough to not conflict with item IDs
+            max_len=max_len,
+            random_mask_prob=0.0,
+            last_item_mask_ratio=0.0,  # Disable last item masking
+            mask_token=101,  # mask_token > max item ID
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        tokens, _, _ = dataset[0]
+
+        # Should pad to max_len
+        assert tokens.shape[0] == max_len
+
+        # Non-padding tokens should be the original sequence
+        non_pad_tokens = tokens[tokens != 0].tolist()
+        assert non_pad_tokens == list(range(1, 11))
+
+    def test_weighted_sampling_exact_length(self):
+        """Test weighted sampling with sequence exactly at max_len"""
+        user_sequences = {0: list(range(1, 51))}  # Exactly 50 items
+        max_len = 50
+
+        dataset = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=100,  # Large enough to accommodate
+            max_len=max_len,
+            random_mask_prob=0.0,
+            last_item_mask_ratio=0.0,  # Disable last item masking
+            mask_token=101,
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        tokens, _, _ = dataset[0]
+
+        # Should return all items without sampling
+        non_pad_tokens = tokens[tokens != 0].tolist()
+        assert non_pad_tokens == list(range(1, 51))
+
+    def test_weighted_vs_recent_different_results(self):
+        """Test that weighted and recent strategies produce different results"""
+        user_sequences = {0: list(range(1, 201))}  # 200 items
+        max_len = 100
+
+        # Recent strategy
+        dataset_recent = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=200,
+            max_len=max_len,
+            random_mask_prob=0.0,
+            mask_token=201,
+            pad_token=0,
+            sampling_strategy="recent",
+        )
+
+        # Weighted strategy
+        dataset_weighted = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=200,
+            max_len=max_len,
+            random_mask_prob=0.0,
+            mask_token=201,
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        # Recent should always return last 100 items
+        tokens_recent, _, _ = dataset_recent[0]
+        non_pad_recent = tokens_recent[tokens_recent != 0].tolist()
+        assert non_pad_recent == list(range(101, 201)), "Recent should return last 100"
+
+        # Weighted should vary and not always be the last 100
+        tokens_weighted, _, _ = dataset_weighted[0]
+        non_pad_weighted = tokens_weighted[tokens_weighted != 0].tolist()
+
+        # With high probability, weighted sampling won't select exactly the last 100
+        # (extremely unlikely with proper weighting)
+        # Just check it's different
+        assert non_pad_weighted != non_pad_recent or len(set(non_pad_weighted) - set(non_pad_recent)) > 0
+
+    def test_weighted_sampling_with_masking(self):
+        """Test weighted sampling works correctly with masking"""
+        user_sequences = {0: list(range(1, 101))}
+        max_len = 50
+
+        dataset = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=100,
+            max_len=max_len,
+            random_mask_prob=0.2,  # Enable masking
+            mask_token=101,
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        tokens, labels, _ = dataset[0]
+
+        # Should have correct length
+        assert tokens.shape[0] == max_len
+        assert labels.shape[0] == max_len
+
+        # Some positions should be masked (labels != 0)
+        num_masked = (labels != 0).sum().item()
+        assert num_masked > 0, "Some items should be masked"
+
+    def test_weighted_sampling_integration_with_dataloader(self, temp_data_dir):
+        """Test weighted sampling works in full dataloader pipeline"""
+        dm = BERT4RecDataModule(
+            data_dir=temp_data_dir,
+            data_file="train_ratings.csv",
+            batch_size=2,
+            max_len=10,
+            sampling_strategy="weighted",
+        )
+        dm.setup()
+
+        dataloader = dm.train_dataloader()
+        batch = next(iter(dataloader))
+
+        sequences, labels, metadata = batch
+
+        # Should have correct batch shape
+        assert sequences.shape[0] == 2  # batch_size
+        assert sequences.shape[1] == 10  # max_len
+        assert labels.shape == sequences.shape
+
+    def test_weighted_sampling_probability_distribution(self):
+        """Test that weighted sampling uses correct probability distribution"""
+        seq_len = 100
+        user_sequences = {0: list(range(1, seq_len + 1))}
+        max_len = 50
+
+        dataset = BERT4RecDataset(
+            user_sequences=user_sequences,
+            num_items=200,  # Large enough to accommodate items
+            max_len=max_len,
+            random_mask_prob=0.0,
+            mask_token=201,
+            pad_token=0,
+            sampling_strategy="weighted",
+        )
+
+        # Sample many times and check distribution
+        num_trials = 5000
+        position_counts = np.zeros(seq_len)
+
+        for _ in range(num_trials):
+            tokens, _, _ = dataset[0]
+            non_pad_tokens = tokens[(tokens != 0) & (tokens != 201)].tolist()
+
+            for item in non_pad_tokens:
+                if 1 <= item <= seq_len:  # Only count items in our range
+                    position_counts[item - 1] += 1
+
+        # Normalize to probabilities
+        sampling_probs = position_counts / position_counts.sum()
+
+        # Expected probabilities (linear: 1, 2, 3, ..., seq_len)
+        weights = np.arange(1, seq_len + 1)
+        expected_probs = weights / weights.sum()
+
+        # Check correlation between observed and expected
+        correlation = np.corrcoef(sampling_probs, expected_probs)[0, 1]
+        assert correlation > 0.95, \
+            f"Sampling should follow linear probability distribution (correlation={correlation})"
