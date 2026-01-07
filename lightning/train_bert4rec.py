@@ -55,6 +55,7 @@ def main(cfg: DictConfig):
         seed=cfg.data.seed,
         num_workers=cfg.data.num_workers,
         use_full_data=cfg.data.use_full_data,
+        sampling_strategy=cfg.data.sampling_strategy,
     )
 
     # Setup data to get num_items
@@ -114,6 +115,7 @@ def main(cfg: DictConfig):
         "data/min_interactions": cfg.data.min_interactions,
         "data/seed": cfg.data.seed,
         "data/use_full_data": cfg.data.use_full_data,
+        "data/sampling_strategy": cfg.data.sampling_strategy,
         # Model
         "model/hidden_units": cfg.model.hidden_units,
         "model/num_heads": cfg.model.num_heads,

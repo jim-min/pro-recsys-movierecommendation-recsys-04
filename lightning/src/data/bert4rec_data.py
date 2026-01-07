@@ -26,6 +26,7 @@ class BERT4RecDataset(Dataset):
         mask_token,
         pad_token,
         last_item_mask_ratio=0.2,
+        sampling_strategy="recent",
         item_genres=None,
         item_directors=None,
         item_writers=None,
@@ -42,6 +43,9 @@ class BERT4RecDataset(Dataset):
             pad_token: Token ID for padding
             last_item_mask_ratio: Probability of additionally masking the last item on top of random masking (default: 0.2)
                                   This boosts next-item prediction while maintaining data diversity
+            sampling_strategy: Strategy for truncating sequences ("recent" or "weighted")
+                - "recent": Take the most recent max_len items (default)
+                - "weighted": Sample max_len items using recency-weighted probabilities
             item_genres: Dict[item_idx, List[genre_idx]] - Item genre mappings
             item_directors: Dict[item_idx, director_idx] - Item director mappings
             item_writers: Dict[item_idx, List[writer_idx]] - Item writer mappings
@@ -55,6 +59,7 @@ class BERT4RecDataset(Dataset):
         self.mask_token = mask_token
         self.pad_token = pad_token
         self.last_item_mask_ratio = last_item_mask_ratio
+        self.sampling_strategy = sampling_strategy
 
         # Metadata
         self.item_genres = item_genres or {}
@@ -62,6 +67,12 @@ class BERT4RecDataset(Dataset):
         self.item_writers = item_writers or {}
         self.item_title_embeddings = item_title_embeddings or {}
         self.title_embedding_dim = title_embedding_dim
+
+        # Check if any metadata is actually enabled
+        self.has_metadata = bool(
+            self.item_genres or self.item_directors or
+            self.item_writers or self.item_title_embeddings
+        )
 
         # Get list of users for indexing
         self.users = list(user_sequences.keys())
@@ -79,10 +90,16 @@ class BERT4RecDataset(Dataset):
         user = self.users[idx]
         seq = self.user_sequences[user]
 
-        # Always apply random masking first (for data diversity)
+        # 1. First truncate/sample the sequence (following BERT4Rec paper)
+        if self.sampling_strategy == "weighted":
+            seq = self._weighted_sample_sequence(seq)
+        else:  # "recent" (default)
+            seq = seq[-self.max_len :]
+
+        # 2. Then apply random masking (for data diversity)
         tokens, labels = self._random_mask_sequence(seq)
 
-        # Additionally mask the last item with probability last_item_mask_ratio
+        # 3. Additionally mask the last item with probability last_item_mask_ratio
         # This boosts next-item prediction performance while maintaining data diversity
         if len(seq) > 0 and np.random.random() < self.last_item_mask_ratio:
             # Force mask the last item (overwrite if already masked)
@@ -90,20 +107,61 @@ class BERT4RecDataset(Dataset):
             tokens[last_idx] = self.mask_token
             labels[last_idx] = seq[last_idx]  # Original item as label
 
-        # Truncate or pad
-        tokens = tokens[-self.max_len :]
-        labels = labels[-self.max_len :]
-
-        # Pad if necessary
+        # 4. Pad if necessary
         pad_len = self.max_len - len(tokens)
         if pad_len > 0:
             tokens = [self.pad_token] * pad_len + tokens
             labels = [self.pad_token] * pad_len + labels
 
-        # Prepare metadata
-        metadata = self._prepare_metadata(tokens)
+        # Prepare metadata only if enabled
+        metadata = self._prepare_metadata(tokens) if self.has_metadata else {}
 
         return torch.LongTensor(tokens), torch.LongTensor(labels), metadata
+
+    def _weighted_sample_sequence(self, seq):
+        """
+        Sample items from sequence using recency-weighted sampling without replacement
+
+        This method samples max_len items from the sequence where:
+        - More recent items have higher probability (linearly increasing: 1, 2, 3, ...)
+        - Original order is preserved (no shuffling)
+        - No duplicates (each item sampled at most once)
+
+        Probability formula for linear weights:
+        - Weight of position i: i (where i = 1, 2, 3, ..., seq_len)
+        - Sum of weights: seq_len * (seq_len + 1) / 2
+        - Probability of position i: i / (seq_len * (seq_len + 1) / 2)
+
+        Args:
+            seq: List[int] - Original sequence
+
+        Returns:
+            List[int] - Sampled sequence maintaining original order
+        """
+        seq_len = len(seq)
+
+        # If sequence is shorter than max_len, return as is
+        if seq_len <= self.max_len:
+            return seq
+
+        # Create recency-weighted probabilities (1, 2, 3, ..., seq_len)
+        # More recent items (at the end) have higher weights
+        # Using formula: weight_sum = n(n+1)/2
+        weights = np.arange(1, seq_len + 1, dtype=np.float64)
+        probabilities = weights / (seq_len * (seq_len + 1) / 2)
+
+        # Sample indices without replacement
+        sampled_indices = np.random.choice(
+            seq_len, size=self.max_len, replace=False, p=probabilities
+        )
+
+        # Sort indices to maintain original order
+        sampled_indices = np.sort(sampled_indices)
+
+        # Extract items at sampled indices
+        sampled_seq = [seq[i] for i in sampled_indices]
+
+        return sampled_seq
 
     def _prepare_metadata(self, tokens):
         """
@@ -148,7 +206,9 @@ class BERT4RecDataset(Dataset):
                 else:
                     writers = [0] * max_writers
                 writer_batch.append(writers)
-            metadata["writers"] = torch.LongTensor(writer_batch)  # [seq_len, max_writers]
+            metadata["writers"] = torch.LongTensor(
+                writer_batch
+            )  # [seq_len, max_writers]
 
         # Title embeddings (pre-computed)
         if self.item_title_embeddings and self.title_embedding_dim > 0:
@@ -277,6 +337,12 @@ class BERT4RecValidationDataset(Dataset):
         self.item_title_embeddings = item_title_embeddings or {}
         self.title_embedding_dim = title_embedding_dim
 
+        # Check if any metadata is actually enabled
+        self.has_metadata = bool(
+            self.item_genres or self.item_directors or
+            self.item_writers or self.item_title_embeddings
+        )
+
         self.users = list(user_sequences.keys())
 
     def __len__(self):
@@ -305,8 +371,8 @@ class BERT4RecValidationDataset(Dataset):
         # Dummy labels (all zeros, not used in validation)
         labels = [self.pad_token] * self.max_len
 
-        # Prepare metadata
-        metadata = self._prepare_metadata(tokens)
+        # Prepare metadata only if enabled
+        metadata = self._prepare_metadata(tokens) if self.has_metadata else {}
 
         return (
             torch.LongTensor(tokens),
@@ -386,6 +452,7 @@ class BERT4RecDataModule(L.LightningDataModule):
             max_len: 50
             random_mask_prob: 0.15
             last_item_mask_ratio: 0.2
+            sampling_strategy: "recent"  # or "weighted"
             min_interactions: 3
             seed: 42
             num_workers: 4
@@ -402,6 +469,7 @@ class BERT4RecDataModule(L.LightningDataModule):
         max_len: int = 50,
         random_mask_prob: float = 0.2,
         last_item_mask_ratio: float = 0.0,
+        sampling_strategy: str = "recent",
         min_interactions: int = 3,
         seed: int = 42,
         num_workers: int = 4,
@@ -414,6 +482,7 @@ class BERT4RecDataModule(L.LightningDataModule):
         self.max_len = max_len
         self.random_mask_prob = random_mask_prob
         self.last_item_mask_ratio = last_item_mask_ratio
+        self.sampling_strategy = sampling_strategy
         self.min_interactions = min_interactions
         self.seed = seed
         self.num_workers = num_workers
@@ -674,9 +743,7 @@ class BERT4RecDataModule(L.LightningDataModule):
                 self.num_directors = len(self.director2idx) + 1
 
                 # Build item->director mapping (1:1 relationship)
-                director_map = dict(
-                    zip(directors_df["item"], directors_df["director"])
-                )
+                director_map = dict(zip(directors_df["item"], directors_df["director"]))
                 for item_id, director_id in director_map.items():
                     if item_id in self.item2idx.index:
                         item_idx = self.item2idx[item_id]
@@ -734,19 +801,17 @@ class BERT4RecDataModule(L.LightningDataModule):
         self.title_embedding_dim = 0
 
         # Try loading from TSV file first (new format from preprocess_title_genre_embeddings.py)
-        title_emb_tsv_path = os.path.join(
-            self.data_dir, "title_embeddings/titles.tsv"
-        )
+        title_emb_tsv_path = os.path.join(self.data_dir, "title_embeddings/titles.tsv")
 
         if os.path.exists(title_emb_tsv_path):
             try:
                 log.info(f"Loading title embeddings from {title_emb_tsv_path}")
-                with open(title_emb_tsv_path, 'r') as f:
+                with open(title_emb_tsv_path, "r") as f:
                     # Skip header
                     next(f)
 
                     for line in f:
-                        parts = line.strip().split('\t')
+                        parts = line.strip().split("\t")
                         if len(parts) != 2:
                             continue
 
@@ -780,7 +845,9 @@ class BERT4RecDataModule(L.LightningDataModule):
 
             if os.path.exists(title_emb_pkl_path):
                 try:
-                    log.info(f"Loading title embeddings from {title_emb_pkl_path} (legacy pickle format)")
+                    log.info(
+                        f"Loading title embeddings from {title_emb_pkl_path} (legacy pickle format)"
+                    )
                     import pickle
 
                     with open(title_emb_pkl_path, "rb") as f:
@@ -822,6 +889,7 @@ class BERT4RecDataModule(L.LightningDataModule):
             mask_token=self.mask_token,
             pad_token=self.pad_token,
             last_item_mask_ratio=self.last_item_mask_ratio,
+            sampling_strategy=self.sampling_strategy,
             item_genres=self.item_genres,
             item_directors=self.item_directors,
             item_writers=self.item_writers,
@@ -835,6 +903,8 @@ class BERT4RecDataModule(L.LightningDataModule):
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=True,
+            persistent_workers=True,  # 속도 향상
+            prefetch_factor=2,  # 속도 향상
             collate_fn=self._collate_fn_with_metadata,
         )
 
@@ -843,11 +913,12 @@ class BERT4RecDataModule(L.LightningDataModule):
         tokens = torch.stack([item[0] for item in batch])
         labels = torch.stack([item[1] for item in batch])
 
-        # Stack metadata from all samples in batch
-        metadata_keys = batch[0][2].keys()
+        # Stack metadata from all samples in batch (skip if empty)
         metadata_batch = {}
-        for key in metadata_keys:
-            metadata_batch[key] = torch.stack([item[2][key] for item in batch])
+        if batch[0][2]:  # Check if metadata dict is not empty
+            metadata_keys = batch[0][2].keys()
+            for key in metadata_keys:
+                metadata_batch[key] = torch.stack([item[2][key] for item in batch])
 
         return tokens, labels, metadata_batch
 
@@ -873,6 +944,8 @@ class BERT4RecDataModule(L.LightningDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=True,
+            persistent_workers=True,  # 속도 향상
+            prefetch_factor=2,        # 속도 향상
             collate_fn=self._collate_fn_val_with_metadata,
         )
 
@@ -882,11 +955,12 @@ class BERT4RecDataModule(L.LightningDataModule):
         labels = torch.stack([item[1] for item in batch])
         targets = torch.cat([item[3] for item in batch])  # [batch_size]
 
-        # Stack metadata
-        metadata_keys = batch[0][2].keys()
+        # Stack metadata (skip if empty)
         metadata_batch = {}
-        for key in metadata_keys:
-            metadata_batch[key] = torch.stack([item[2][key] for item in batch])
+        if batch[0][2]:  # Check if metadata dict is not empty
+            metadata_keys = batch[0][2].keys()
+            for key in metadata_keys:
+                metadata_batch[key] = torch.stack([item[2][key] for item in batch])
 
         return tokens, labels, metadata_batch, targets
 
@@ -979,12 +1053,12 @@ class BERT4RecDataModule(L.LightningDataModule):
         metadata = {}
 
         if self.item_genres:
-            metadata['genres'] = self.item_genres
+            metadata["genres"] = self.item_genres
         if self.item_directors:
-            metadata['directors'] = self.item_directors
+            metadata["directors"] = self.item_directors
         if self.item_writers:
-            metadata['writers'] = self.item_writers
+            metadata["writers"] = self.item_writers
         if self.item_title_embeddings:
-            metadata['title_embs'] = self.item_title_embeddings
+            metadata["title_embs"] = self.item_title_embeddings
 
         return metadata if metadata else None
