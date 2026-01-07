@@ -1,0 +1,27 @@
+dataset:
+  data_path: "/data/ephemeral/home/data/train/train_ratings.csv"
+  years_path: "/data/ephemeral/home/data/train/years.tsv"
+
+model_args:
+  lambda_1: 0.1
+  lambda_2: 500
+  rho: 5000
+  positive: true
+  n_iter: 20
+  verbose: true
+
+split:
+  valid_ratio: 0.1
+  seed: 42
+
+validation:
+  eval_every: 10
+  k: 10
+
+output:
+  model_path: "checkpoints/slim_model.npz"
+  recommendations_path: "outputs/recommendations.csv"
+
+inference:
+  topk: 10
+  future_delete: true
